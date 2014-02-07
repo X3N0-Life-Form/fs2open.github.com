@@ -311,6 +311,8 @@ char *Parse_object_flags_2[MAX_PARSE_OBJECT_FLAGS_2] = {
 	"ship-locked",
 	"weapons-locked",
 	"scramble-messages",
+	"no-arrival-log",
+	"no-departure-log"
 };
 
 char *Mission_event_log_flags[MAX_MISSION_EVENT_LOG_FLAGS] = {
@@ -2047,6 +2049,12 @@ int parse_create_object_sub(p_object *p_objp)
 	if ((shipp->wingnum != -1) && (Wings[shipp->wingnum].flags & WF_NAV_CARRY))
 		shipp->flags2 |= SF2_NAVPOINT_CARRY;
 
+	if ((shipp->wingnum != -1) && (Wings[shipp->wingnum].flags & WF_NO_ARRIVAL_LOG))
+		shipp->flags2 |= SF2_NO_ARRIVAL_LOG;
+
+	if ((shipp->wingnum != -1) && (Wings[shipp->wingnum].flags & WF_NO_DEPARTURE_LOG))
+		shipp->flags2 |= SF2_NO_DEPARTURE_LOG;
+
 	// if the wing index and wing pos are set for this parse object, set them for the ship.  This
 	// is useful in multiplayer when ships respawn
 	shipp->wing_status_wing_index = p_objp->wing_status_wing_index;
@@ -2566,6 +2574,12 @@ void resolve_parse_flags(object *objp, int parse_flags, int parse_flags2)
 
 	if (parse_flags2 & P2_SF2_SCRAMBLE_MESSAGES)
 		shipp->flags2 |= SF2_SCRAMBLE_MESSAGES;
+
+	if (parse_flags2 & P2_SF2_NO_ARRIVAL_LOG)
+		shipp->flags2 |= SF2_NO_ARRIVAL_LOG;
+
+	if (parse_flags2 & P2_SF2_NO_DEPARTURE_LOG)
+		shipp->flags2 |= SF2_NO_DEPARTURE_LOG;
 }
 
 void fix_old_special_explosions(p_object *p_objp, int variable_index) 
@@ -4407,6 +4421,10 @@ void parse_wing(mission *pm)
 				wingp->flags |= WF_NO_DYNAMIC;
 			else if ( !stricmp( wing_flag_strings[i], NOX("nav-carry-status")) )
 				wingp->flags |= WF_NAV_CARRY;
+			else if (!stricmp(wing_flag_strings[i], NOX("no-arrival-log")))
+				wingp->flags |= WF_NO_ARRIVAL_LOG;
+			else if (!stricmp(wing_flag_strings[i], NOX("no-departure-log")))
+				wingp->flags |= WF_NO_DEPARTURE_LOG;
 			else
 				Warning(LOCATION, "unknown wing flag\n%s\n\nSkipping.", wing_flag_strings[i]);
 		}

@@ -505,6 +505,8 @@ extern ship_flag_name Ship_flag_names[];
 #define SF2_WEAPONS_LOCKED					(1<<25)		// Karajorma - Prevents the player from changing the weapons on the ship on the loadout screen
 #define SF2_SHIP_SELECTIVE_LINKING			(1<<26)		// RSAXVC - Allow pilot to pick firing configuration
 #define SF2_SCRAMBLE_MESSAGES				(1<<27)		// Goober5000 - all messages sent from this ship appear scrambled
+#define SF2_NO_ARRIVAL_LOG					(1<<28)		// KeldorKatarn - hide arrival log
+#define SF2_NO_DEPARTURE_LOG				(1<<29)		// KeldorKatarn - hide departure log
 
 // If any of these bits in the ship->flags are set, ignore this ship when targeting
 extern int TARGET_SHIP_IGNORE_FLAGS;
@@ -1468,6 +1470,8 @@ extern SCP_vector<engine_wash_info> Engine_wash_info;
 #define WF_DEPARTURE_ORDERED		(1<<11)		// departure of this wing was ordered by player
 #define WF_NEVER_EXISTED			(1<<12)		// this wing never existed because something prevented it from being created (like its mother ship being destroyed)
 #define WF_NAV_CARRY				(1<<13)		// Kazan - Wing has nav-carry-status
+#define WF_NO_ARRIVAL_LOG			(1<<14)		// don't log the arrival of any ships in this wing.
+#define WF_NO_DEPARTURE_LOG			(1<<15)		// don't log the departure of any ships in this wing.
 
 //	Defines a wing of ships.
 typedef struct wing {

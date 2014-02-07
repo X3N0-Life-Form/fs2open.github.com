@@ -90,6 +90,8 @@ public:
 	enum { IDD = IDD_SHIP_EDITOR };
 	CButton	m_no_departure_warp;
 	CButton	m_no_arrival_warp;
+	CButton	m_no_departure_log;
+	CButton	m_no_arrival_log;
 	CButton	m_player_ship;
 	CSpinButtonCtrl	m_destroy_spin;
 	CSpinButtonCtrl	m_departure_delay_spin;
@@ -167,6 +169,8 @@ protected:
 	afx_msg void OnSetAsPlayerShip();
 	afx_msg void OnRestrictArrival();
 	afx_msg void OnRestrictDeparture();
+	afx_msg void OnBnClickedNoArrivalLog();
+	afx_msg void OnBnClickedNoDepartureLog();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

@@ -64,6 +64,8 @@ public:
 	BOOL	m_no_arrival_warp;
 	BOOL	m_no_departure_warp;
 	BOOL	m_no_dynamic;
+	BOOL	m_no_arrival_log;
+	BOOL	m_no_departure_log;
 	CString	m_wing_squad_filename;
 	//}}AFX_DATA
 
