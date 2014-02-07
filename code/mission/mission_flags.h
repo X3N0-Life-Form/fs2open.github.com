@@ -95,6 +95,9 @@ namespace Mission {
 		Already_handled,	// Goober5000 - used for docking currently, but could be used generically
 		OF_No_collide,
         SF_No_disabled_self_destruct,
+		SF_No_arrival_log,				// WCS
+		SF_No_departure_log,			// WCS
+
 
 		NUM_VALUES
 	};

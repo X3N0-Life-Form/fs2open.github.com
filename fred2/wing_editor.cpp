@@ -60,6 +60,8 @@ wing_editor::wing_editor(CWnd* pParent /*=NULL*/)
 	m_no_arrival_warp = FALSE;
 	m_no_departure_warp = FALSE;
 	m_no_dynamic = FALSE;
+	m_no_arrival_log = FALSE;
+	m_no_departure_log = FALSE;
 	//}}AFX_DATA_INIT
 	modified = 0;
 	select_sexp_node = -1;
@@ -94,6 +96,8 @@ void wing_editor::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_NO_ARRIVAL_WARP, m_no_arrival_warp);
 	DDX_Check(pDX, IDC_NO_DEPARTURE_WARP, m_no_departure_warp);
 	DDX_Check(pDX, IDC_NO_DYNAMIC, m_no_dynamic);
+	DDX_Check(pDX, IDC_NO_WING_ARRIVAL_LOG, m_no_arrival_log);
+	DDX_Check(pDX, IDC_NO_WING_DEPARTURE_LOG, m_no_departure_log);
 	//}}AFX_DATA_MAP
 
 	if (pDX->m_bSaveAndValidate) {  // get dialog control values
@@ -281,6 +285,8 @@ void wing_editor::initialize_data_safe(int full_update)
 		m_no_arrival_warp = 0;
 		m_no_departure_warp = 0;
 		m_no_dynamic = 0;
+		m_no_arrival_log = 0;
+		m_no_departure_log = 0;
 		player_enabled = enable = FALSE;
 
 	} else {
@@ -400,6 +406,16 @@ void wing_editor::initialize_data_safe(int full_update)
 		else
 			m_no_departure_warp = 0;
 
+		if ( Wings[cur_wing].flags[Ship::Wing_Flags::No_arrival_log] )
+			m_no_arrival_log = 1;
+		else
+			m_no_arrival_log = 0;
+
+		if ( Wings[cur_wing].flags[Ship::Wing_Flags::No_departure_log] )
+			m_no_departure_log = 1;
+		else
+			m_no_departure_log = 0;
+
 		ptr = (CComboBox *) GetDlgItem(IDC_WING_SPECIAL_SHIP);
 		ptr->ResetContent();
 		for (i=0; i<Wings[cur_wing].wave_count; i++)
@@ -476,6 +492,8 @@ void wing_editor::initialize_data_safe(int full_update)
 	GetDlgItem(IDC_NO_ARRIVAL_MESSAGE)->EnableWindow(enable);
 	GetDlgItem(IDC_NO_ARRIVAL_WARP)->EnableWindow(enable);
 	GetDlgItem(IDC_NO_DEPARTURE_WARP)->EnableWindow(enable);
+	GetDlgItem(IDC_NO_WING_ARRIVAL_LOG)->EnableWindow(enable);
+	GetDlgItem(IDC_NO_WING_DEPARTURE_LOG)->EnableWindow(enable);
 
 	if (cur_wing >= 0) {
 		enable = TRUE;
@@ -888,6 +906,24 @@ void wing_editor::update_data_safe()
             set_modified();
         Wings[cur_wing].flags.remove(Ship::Wing_Flags::No_dynamic);
     }
+	if ( m_no_arrival_log ) {
+		if ( !(Wings[cur_wing].flags[Ship::Wing_Flags::No_arrival_log]) )
+			set_modified();
+		Wings[cur_wing].flags.set(Ship::Wing_Flags::No_arrival_log);
+	} else {
+		if ( Wings[cur_wing].flags[Ship::Wing_Flags::No_arrival_log] )
+			set_modified();
+		Wings[cur_wing].flags.set(Ship::Wing_Flags::No_arrival_log);
+	}
+	if ( m_no_departure_log ) {
+		if ( !(Wings[cur_wing].flags[Ship::Wing_Flags::No_departure_log]) )
+			set_modified();
+		Wings[cur_wing].flags.set(Ship::Wing_Flags::No_departure_log);
+	} else {
+		if ( Wings[cur_wing].flags[Ship::Wing_Flags::No_departure_log] )
+			set_modified();
+		Wings[cur_wing].flags.set(Ship::Wing_Flags::No_departure_log);
+	}
 
 	if (Wings[cur_wing].arrival_cue >= 0)
 		free_sexp2(Wings[cur_wing].arrival_cue);

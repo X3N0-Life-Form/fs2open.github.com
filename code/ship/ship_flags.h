@@ -105,6 +105,8 @@ namespace Ship {
 		Scramble_messages,			// Goober5000 - all messages sent from this ship appear scrambled
         No_secondary_lockon,        // zookeeper - secondary lock-on disabled
         No_disabled_self_destruct,  // Goober5000 - ship will not self-destruct after 90 seconds if engines or weapons destroyed (c.f. ai_maybe_self_destruct)
+		No_arrival_log,				// WCS
+		No_departure_log,			// WCS
 
 		NUM_VALUES
 
@@ -250,6 +252,9 @@ namespace Ship {
 		Departure_ordered,		// departure of this wing was ordered by player
 		Never_existed,			// this wing never existed because something prevented it from being created (like its mother ship being destroyed)
 		Nav_carry,				// Kazan - Wing has nav-carry-status
+		No_arrival_log,			// WCS
+		No_departure_log,		// WCS
+
 
 		NUM_VALUES
 	};
