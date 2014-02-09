@@ -2664,6 +2664,8 @@ void resolve_parse_flags(object *objp, flagset<Mission::Parse_Object_Flags> &par
 	if (parse_flags[Mission::Parse_Object_Flags::SF_No_departure_log])
 		shipp->flags.set(Ship::Ship_Flags::No_departure_log);
 
+	if (parse_flags[Mission::Parse_Object_Flags::SF_Hide_log_entries])
+		shipp->flags.set(Ship::Ship_Flags::Hide_log_entries);
 }
 
 void fix_old_special_explosions(p_object *p_objp, int variable_index) 

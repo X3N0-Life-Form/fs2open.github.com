@@ -227,6 +227,15 @@ void mission_log_add_entry(int type, const char *pname, const char *sname, int i
 	switch ( type ) {
 	int index;
 
+	// Note: might need the multiplayer special case from below
+	index = ship_name_lookup(pname);
+	if (index >= 0) {
+		ship* shipp = &Ships[index];
+		if ((shipp->flags2 & SF2_HIDE_LOG_ENTRIES) != 0) {
+			entry->flags |= MLF_HIDDEN;
+		}
+	}
+
 	case LOG_SHIP_DESTROYED:
 	case LOG_SHIP_ARRIVED:
 	case LOG_SHIP_DEPARTED:
@@ -240,9 +249,9 @@ void mission_log_add_entry(int type, const char *pname, const char *sname, int i
 		if((Game_mode & GM_MULTIPLAYER) && (multi_find_player_by_callsign(pname) >= 0)){
 			int np_index = multi_find_player_by_callsign(pname);
 			index = multi_get_player_ship( np_index );
-		} else {
-			index = ship_name_lookup( pname );
-		}
+		}// else { // redundant; see above
+		//	index = ship_name_lookup( pname );
+		//}
 
 		Assert (index >= 0);
 		entry->primary_team = Ships[index].team;

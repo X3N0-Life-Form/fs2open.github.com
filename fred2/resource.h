@@ -1179,10 +1179,16 @@
 #define IDC_MISSION_LOG_LAST_REPEAT     1640
 #define IDC_MISSION_LOG_1ST_TRIGGER     1641
 #define IDC_MISSION_LOG_LAST_TRIGGER    1642
+<<<<<<< 938e610fb4e191140cd462a5075bd59540ba3b37:fred2/resource.h
 #define IDC_NO_COLLIDE                  1643
 #define IDC_NO_DISABLED_SELF_DESTRUCT   1644
 #define IDC_NO_WING_ARRIVAL_LOG         1645
 #define IDC_NO_WING_DEPARTURE_LOG       1646
+=======
+#define IDC_NO_WING_ARRIVAL_LOG         1643
+#define IDC_NO_WING_DEPARTURE_LOG       1644
+#define IDC_HIDE_LOG_ENTRIES            1645
+>>>>>>> added hide-log-entries flag (FRED is still bonkers though, need to investigate that thing):code/fred2/resource.h
 #define ID_FILE_MISSIONNOTES            32771
 #define ID_DUPLICATE                    32774
 #define ID_VIEW_ROTATE                  32775

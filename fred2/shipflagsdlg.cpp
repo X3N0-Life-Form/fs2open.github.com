@@ -78,6 +78,7 @@ void ship_flags_dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SCRAMBLE_MESSAGES, m_scramble_messages);
 	DDX_Control(pDX, IDC_NO_COLLIDE, m_no_collide);
 	DDX_Control(pDX, IDC_NO_DISABLED_SELF_DESTRUCT, m_no_disabled_self_destruct);
+	DDX_Control(pDX, IDC_HIDE_LOG_ENTRIES, m_hide_log_entries);
 	//}}AFX_DATA_MAP
 
 	if (pDX->m_bSaveAndValidate) {  // get dialog control values
@@ -144,6 +145,7 @@ BEGIN_MESSAGE_MAP(ship_flags_dlg, CDialog)
 	ON_BN_CLICKED(IDC_SCRAMBLE_MESSAGES, OnScrambleMessages)
 	ON_BN_CLICKED(IDC_NO_COLLIDE, OnNoCollide)
 	ON_BN_CLICKED(IDC_NO_DISABLED_SELF_DESTRUCT, OnNoDisabledSelfDestruct)
+	ON_BN_CLICKED(IDC_HIDE_LOG_ENTRIES, OnHideLogEntries)
 	//}}AFX_MSG_MAP
 END_MESSAGE_MAP()
 
@@ -166,6 +168,7 @@ BOOL ship_flags_dlg::OnInitDialog()
 	int special_warpin = 0, disable_messages = 0, guardian = 0, vaporize = 0, stealth = 0, friendly_stealth_invisible = 0;
 	int no_death_scream = 0, always_death_scream = 0, scramble_messages = 0, no_disabled_self_destruct = 0;
 	int nav_carry = 0, nav_needslink = 0, hide_ship_name = 0, set_class_dynamically = 0, no_ets = 0, cloaked = 0, no_collide = 0;
+	int hide_log_entries = 0;
 
 	object *objp;
 	ship *shipp;
@@ -211,6 +214,7 @@ BOOL ship_flags_dlg::OnInitDialog()
 					nav_carry = (shipp->flags[Ship::Ship_Flags::Navpoint_carry]) ? 1 : 0; 
 					nav_needslink = (shipp->flags[Ship::Ship_Flags::Navpoint_needslink]) ? 1 : 0;
 					hide_ship_name = (shipp->flags[Ship::Ship_Flags::Hide_ship_name]) ? 1 : 0;
+					hide_log_entries = (shipp->flags[Ship::Ship_Flags::Hide_log_entries]) ? 1 : 0;
 					no_ets = (shipp->flags[Ship::Ship_Flags::No_ets]) ? 1 : 0;
 					cloaked = (shipp->flags[Ship::Ship_Flags::Cloaked]) ? 1 : 0;
 					scramble_messages = (shipp->flags[Ship::Ship_Flags::Scramble_messages]) ? 1 : 0;
@@ -273,6 +277,7 @@ BOOL ship_flags_dlg::OnInitDialog()
 					nav_carry = tristate_set(shipp->flags[Ship::Ship_Flags::Navpoint_carry], nav_carry);
 					nav_needslink = tristate_set(shipp->flags[Ship::Ship_Flags::Navpoint_needslink], nav_needslink);
 					hide_ship_name = tristate_set(shipp->flags[Ship::Ship_Flags::Hide_ship_name], hide_ship_name);
+					hide_log_entries = tristate_set(shipp->flags[Ship::Ship_Flags::Hide_log_entries], hide_log_entries);
 					no_ets = tristate_set(shipp->flags[Ship::Ship_Flags::No_ets], no_ets);
 					cloaked = tristate_set(shipp->flags[Ship::Ship_Flags::Cloaked], cloaked);
 					scramble_messages = tristate_set(shipp->flags[Ship::Ship_Flags::Scramble_messages], scramble_messages);
@@ -349,6 +354,7 @@ BOOL ship_flags_dlg::OnInitDialog()
 	m_nav_carry.SetCheck(nav_carry);
 	m_nav_needslink.SetCheck(nav_needslink);
 	m_hide_ship_name.SetCheck(hide_ship_name);
+	m_hide_log_entries.SetCheck(hide_log_entries);
 	m_disable_ets.SetCheck(no_ets);
 	m_cloaked.SetCheck(cloaked);
 	m_scramble_messages.SetCheck(scramble_messages);
@@ -939,6 +945,22 @@ void ship_flags_dlg::update_ship(int shipnum)
         break;
     }
 
+	switch (m_hide_log_entries.GetCheck()) {
+		case 1:
+			if (!(shipp->flags[Ship::Ship_Flags::Hide_log_entries]))
+				set_modified();
+
+			shipp->flags.set(Ship::Ship_Flags::Hide_log_entries);
+			break;
+
+		case 0:
+			if (shipp->flags[Ship::Ship_Flags::Hide_log_entries])
+				set_modified();
+
+			shipp->flags.remove(Ship::Ship_Flags::Hide_log_entries);
+			break;
+	}
+
     switch (m_disable_ets.GetCheck()) {
     case 1:
         if (!(shipp->flags[Ship::Ship_Flags::No_ets]))
@@ -1422,6 +1444,15 @@ void ship_flags_dlg::OnHideShipName()
  		m_hide_ship_name.SetCheck(0);
 	} else {
 		m_hide_ship_name.SetCheck(1);
+	}
+}
+
+void ship_flags_dlg::OnHideLogEntries()
+{
+	if (m_hide_log_entries.GetCheck() == 1) {
+ 		m_hide_log_entries.SetCheck(0);
+	} else {
+		m_hide_log_entries.SetCheck(1);
 	}
 }
 

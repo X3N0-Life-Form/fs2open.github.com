@@ -107,6 +107,7 @@ namespace Ship {
         No_disabled_self_destruct,  // Goober5000 - ship will not self-destruct after 90 seconds if engines or weapons destroyed (c.f. ai_maybe_self_destruct)
 		No_arrival_log,				// WCS
 		No_departure_log,			// WCS
+		Hide_log_entries,			// WCS
 
 		NUM_VALUES
 

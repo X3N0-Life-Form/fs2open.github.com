@@ -63,6 +63,7 @@ public:
 	CButton m_nav_carry;
 	CButton m_nav_needslink;
 	CButton m_hide_ship_name;
+	CButton m_hide_log_entries;
 	CButton m_disable_ets;
 	CButton m_cloaked;
 	CButton	m_set_class_dynamically;
@@ -130,6 +131,7 @@ protected:
 	afx_msg void OnScrambleMessages();
 	afx_msg void OnNoCollide();
 	afx_msg void OnNoDisabledSelfDestruct();
+	afx_msg void OnHideLogEntries();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

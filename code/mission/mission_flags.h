@@ -97,7 +97,7 @@ namespace Mission {
         SF_No_disabled_self_destruct,
 		SF_No_arrival_log,				// WCS
 		SF_No_departure_log,			// WCS
-
+		SF_Hide_log_entries,			// WCS
 
 		NUM_VALUES
 	};
