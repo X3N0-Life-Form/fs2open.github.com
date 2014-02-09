@@ -312,7 +312,8 @@ char *Parse_object_flags_2[MAX_PARSE_OBJECT_FLAGS_2] = {
 	"weapons-locked",
 	"scramble-messages",
 	"no-arrival-log",
-	"no-departure-log"
+	"no-departure-log",
+	"hide-log-entries"
 };
 
 char *Mission_event_log_flags[MAX_MISSION_EVENT_LOG_FLAGS] = {
@@ -2580,6 +2581,9 @@ void resolve_parse_flags(object *objp, int parse_flags, int parse_flags2)
 
 	if (parse_flags2 & P2_SF2_NO_DEPARTURE_LOG)
 		shipp->flags2 |= SF2_NO_DEPARTURE_LOG;
+
+	if (parse_flags2 & SF2_HIDE_LOG_ENTRIES)
+		shipp->flags2 |= SF2_HIDE_LOG_ENTRIES;
 }
 
 void fix_old_special_explosions(p_object *p_objp, int variable_index) 

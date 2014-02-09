@@ -1734,6 +1734,8 @@ int CFred_mission_save::save_objects()
 				fout(" \"no-arrival-log\"");
 			if (Ships[i].flags2 & SF2_NO_DEPARTURE_LOG)
 				fout(" \"no-departure-log\"");
+			if (Ships[i].flags2 & SF2_HIDE_LOG_ENTRIES)
+				fout(" \"hide-log-entries\"");
 			fout(" )");
 		}
 		// -----------------------------------------------------------

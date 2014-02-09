@@ -507,6 +507,7 @@ extern ship_flag_name Ship_flag_names[];
 #define SF2_SCRAMBLE_MESSAGES				(1<<27)		// Goober5000 - all messages sent from this ship appear scrambled
 #define SF2_NO_ARRIVAL_LOG					(1<<28)		// KeldorKatarn - hide arrival log
 #define SF2_NO_DEPARTURE_LOG				(1<<29)		// KeldorKatarn - hide departure log
+#define SF2_HIDE_LOG_ENTRIES				(1<<30)		// KeldorKatarn - hide all log entries
 
 // If any of these bits in the ship->flags are set, ignore this ship when targeting
 extern int TARGET_SHIP_IGNORE_FLAGS;
