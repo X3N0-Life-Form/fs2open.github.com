@@ -425,6 +425,7 @@ sexp_oper Operators[] = {
 	{ "special-warpout-name",			OP_SET_SPECIAL_WARPOUT_NAME,			2,	2,			SEXP_ACTION_OPERATOR,	},
 	{ "get-ets-value",					OP_GET_ETS_VALUE,						2,	2,			SEXP_ACTION_OPERATOR,	},	// niffiwan
 	{ "set-ets-values",					OP_SET_ETS_VALUES,						4,	INT_MAX,	SEXP_ACTION_OPERATOR,	},	// niffiwan
+	{ "lock-controls",					OP_LOCK_CONTROLS,						1,	1,			SEXP_ACTION_OPERATOR,	},	//KeldorKatarn
 
 	//Subsystems and Health Sub-Category
 	{ "ship-invulnerable",				OP_SHIP_INVULNERABLE,					1,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
@@ -21639,6 +21640,12 @@ int sexp_player_is_cheating_bastard() {
 	return SEXP_FALSE;
 }
 
+void sexp_lock_controls(int node)
+{
+	bool lock_controls = (is_sexp_true(node) != 0);
+	lock_player_controls(lock_controls);
+}
+
 /**
  * Returns the subsystem type if the name of a subsystem is actually a generic type (e.g \<all engines\> or \<all turrets\>
  */
@@ -24057,6 +24064,11 @@ int eval_sexp(int cur_node, int referenced_node)
 				sexp_val = sexp_player_is_cheating_bastard();
 				break;
 
+			case OP_LOCK_CONTROLS:
+				sexp_lock_controls(node);
+				sexp_val = SEXP_TRUE;
+				break;
+
 			default:
 				Error(LOCATION, "Looking for SEXP operator, found '%s'.\n", CTEXT(cur_node));
 				break;
@@ -25046,6 +25058,7 @@ int query_operator_return_type(int op)
 		case OP_COPY_VARIABLE_BETWEEN_INDEXES:
 		case OP_SET_ETS_VALUES:
 		case OP_CALL_SSM_STRIKE:
+		case OP_LOCK_CONTROLS:
 			return OPR_NULL;
 
 		case OP_AI_CHASE:
@@ -26000,6 +26013,9 @@ int query_operator_argument_type(int op, int argnum)
 				return OPF_IFF;
 			else
 				return OPF_SHIP;
+
+		case OP_LOCK_CONTROLS:
+			return OPF_BOOL;
 
 		case OP_SELF_DESTRUCT:
 			return OPF_SHIP;
@@ -28527,6 +28543,7 @@ int get_subcategory(int sexp_id)
 		case OP_WARP_NEVER:
 		case OP_WARP_ALLOWED:
 		case OP_SET_ETS_VALUES:
+		case OP_LOCK_CONTROLS:
 			return CHANGE_SUBCATEGORY_SHIELDS_ENGINES_AND_WEAPONS;
 
 		case OP_SHIP_INVULNERABLE:
@@ -32492,7 +32509,13 @@ sexp_help_struct Sexp_help[] = {
 
 	{OP_PLAYER_IS_CHEATING_BASTARD, "player-is-cheating\r\n"
 		"\tReturns true if the player is or has been cheating in this mission.\r\n"
-	}
+	},
+
+	{ OP_LOCK_CONTROLS, "lock-controls\r\n"
+		"\tLocks or unlocks the controls for the player\r\n"
+		"\tTakes 1 argument\r\n"
+		"\tTrue if the controls should be locked, false otherwise"
+	},
 };
 
 

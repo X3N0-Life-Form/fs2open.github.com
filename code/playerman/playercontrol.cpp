@@ -63,6 +63,8 @@ int view_centering = 0;
 int toggle_glide = 0;
 int press_glide = 0;
 
+bool Lock_controls = false;
+
 ////////////////////////////////////////////////////////////
 // Module data
 ////////////////////////////////////////////////////////////
@@ -833,8 +835,43 @@ void copy_control_info(control_info *dest_ci, control_info *src_ci)
 	}
 }
 
+void lock_player_controls(bool lock_controls)
+{
+	if (lock_controls && !Lock_controls)
+	{
+		//afterburner_stop_sounds(); // let's leave that out for now ...
+		Player_obj->phys_info.desired_rotvel = vmd_zero_vector;
+		Player_obj->phys_info.desired_vel = vmd_zero_vector;
+
+		Player_obj->phys_info.flags &= ~PF_AFTERBURNER_ON;
+		Player_obj->phys_info.flags &= ~PF_AFTERBURNER_WAIT;
+		Player_obj->phys_info.flags &= ~PF_BOOSTER_ON;
+		Player_obj->phys_info.flags &= ~PF_GLIDING;
+
+		joy_flush();
+		key_flush();
+		mouse_flush();
+		player_control_reset_ci(&(Player->ci));
+	}
+	else if (!lock_controls && Lock_controls)
+	{
+		Player_obj->phys_info.desired_rotvel = vmd_zero_vector;
+		Player_obj->phys_info.desired_vel = Player_obj->phys_info.vel;
+
+		joy_flush();
+		key_flush();
+		mouse_flush();
+		player_control_reset_ci(&(Player->ci));
+	}
+
+	Lock_controls = lock_controls;
+}
+
 void read_player_controls(object *objp, float frametime)
 {
+	if (Lock_controls)
+		return;
+
 	float diff;
 	int can_warp = 0, warp_failed = 0;
 	float target_warpout_speed;
@@ -1206,6 +1243,8 @@ void player_level_init()
 	Player_ai = NULL;
 
 	Player_use_ai = 0;	// Goober5000
+
+	Lock_controls = false;
 
 	Joystick_last_reading = -1;				// Make the joystick read right away.
 
