@@ -426,6 +426,7 @@ sexp_oper Operators[] = {
 	{ "special-warpout-name",			OP_SET_SPECIAL_WARPOUT_NAME,			2,	2,			SEXP_ACTION_OPERATOR,	},
 	{ "get-ets-value",					OP_GET_ETS_VALUE,						2,	2,			SEXP_ACTION_OPERATOR,	},	// niffiwan
 	{ "set-ets-values",					OP_SET_ETS_VALUES,						4,	INT_MAX,	SEXP_ACTION_OPERATOR,	},	// niffiwan
+	{ "lock-controls",					OP_LOCK_CONTROLS,						1,	1,			SEXP_ACTION_OPERATOR,	},	//KeldorKatarn
 
 	//Subsystems and Health Sub-Category
 	{ "ship-invulnerable",				OP_SHIP_INVULNERABLE,					1,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
@@ -22488,6 +22489,12 @@ void sexp_set_motion_debris(int node) {
 	Motion_debris_override = is_sexp_true(node) != 0;
 }
 
+void sexp_lock_controls(int node)
+{
+	bool lock_controls = (is_sexp_true(node) != 0);
+	lock_player_controls(lock_controls);
+}
+
 /**
  * Returns the subsystem type if the name of a subsystem is actually a generic type (e.g \<all engines\> or \<all turrets\>
  */
@@ -24968,6 +24975,11 @@ int eval_sexp(int cur_node, int referenced_node)
 				sexp_set_turret_secondary_ammo(node);
 				break;
 
+			case OP_LOCK_CONTROLS:
+				sexp_lock_controls(node);
+				sexp_val = SEXP_TRUE;
+				break;
+
 			default:
 				Error(LOCATION, "Looking for SEXP operator, found '%s'.\n", CTEXT(cur_node));
 				break;
@@ -26001,6 +26013,7 @@ int query_operator_return_type(int op)
 		case OP_SET_MOTION_DEBRIS:
 		case OP_TURRET_SET_PRIMARY_AMMO:
 		case OP_TURRET_SET_SECONDARY_AMMO:
+		case OP_LOCK_CONTROLS:
 			return OPR_NULL;
 
 		case OP_AI_CHASE:
@@ -26999,6 +27012,9 @@ int query_operator_argument_type(int op, int argnum)
 				return OPF_IFF;
 			else
 				return OPF_SHIP;
+
+		case OP_LOCK_CONTROLS:
+			return OPF_BOOL;
 
 		case OP_SELF_DESTRUCT:
 			return OPF_SHIP;
@@ -29606,6 +29622,7 @@ int get_subcategory(int sexp_id)
 		case OP_WARP_NEVER:
 		case OP_WARP_ALLOWED:
 		case OP_SET_ETS_VALUES:
+		case OP_LOCK_CONTROLS:
 			return CHANGE_SUBCATEGORY_SHIELDS_ENGINES_AND_WEAPONS;
 
 		case OP_SHIP_INVULNERABLE:
@@ -33691,6 +33708,12 @@ sexp_help_struct Sexp_help[] = {
 		"\tThis overrides any choice made by the user through the -nomotiondebris commandline flag."
 		"Takes 1 argument...\r\n"
 		"\t1:\tBoolean: True will disable motion debris, False reenable it.\r\n"
+	},
+
+	{ OP_LOCK_CONTROLS, "lock-controls\r\n"
+		"\tLocks or unlocks the controls for the player\r\n"
+		"\tTakes 1 argument\r\n"
+		"\tTrue if the controls should be locked, false otherwise"
 	}
 };
 

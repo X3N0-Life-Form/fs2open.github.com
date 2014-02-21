@@ -231,6 +231,7 @@ extern void player_level_init();
 extern void player_controls_init();				// initialize Descent style controls for use in various places
 extern void player_match_target_speed(char *no_target_text=NULL, char *match_off_text=NULL, char *match_on_text=NULL);		// call to continually match speed with selected target
 extern void player_clear_speed_matching();
+extern void lock_player_controls(bool lock_controls);
 
 extern int lua_game_control;					// defines the level of control set to lua scripting
 

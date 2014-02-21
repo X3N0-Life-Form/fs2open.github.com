@@ -732,6 +732,7 @@ class waypoint_list;
 #define OP_BEAM_FLOATING_FIRE				(0x002b | OP_CATEGORY_CHANGE2 | OP_NONCAMPAIGN_FLAG)	// MageKing17
 #define OP_TURRET_SET_PRIMARY_AMMO			(0x002c | OP_CATEGORY_CHANGE2 | OP_NONCAMPAIGN_FLAG)	// DahBlount, part of the turret ammo changes
 #define OP_TURRET_SET_SECONDARY_AMMO		(0x002d | OP_CATEGORY_CHANGE2 | OP_NONCAMPAIGN_FLAG)	// DahBlount, part of the turret ammo changes
+#define OP_LOCK_CONTROLS					(0x002e | OP_CATEGORY_CHANGE2 | OP_NONCAMPAIGN_FLAG) // KeldorKatarn
 
 // defined for AI goals
 #define OP_AI_CHASE							(0x0000 | OP_CATEGORY_AI | OP_NONCAMPAIGN_FLAG)
