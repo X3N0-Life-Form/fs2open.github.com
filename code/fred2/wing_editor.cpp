@@ -60,8 +60,6 @@ wing_editor::wing_editor(CWnd* pParent /*=NULL*/)
 	m_no_arrival_warp = FALSE;
 	m_no_departure_warp = FALSE;
 	m_no_dynamic = FALSE;
-	m_no_arrival_log = FALSE;
-	m_no_departure_log = FALSE;
 	//}}AFX_DATA_INIT
 	modified = 0;
 	select_sexp_node = -1;
@@ -96,8 +94,6 @@ void wing_editor::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_NO_ARRIVAL_WARP, m_no_arrival_warp);
 	DDX_Check(pDX, IDC_NO_DEPARTURE_WARP, m_no_departure_warp);
 	DDX_Check(pDX, IDC_NO_DYNAMIC, m_no_dynamic);
-	DDX_Check(pDX, IDC_NO_WING_ARRIVAL_LOG, m_no_arrival_log);
-	DDX_Check(pDX, IDC_NO_WING_DEPARTURE_LOG, m_no_departure_log);
 	//}}AFX_DATA_MAP
 
 	if (pDX->m_bSaveAndValidate) {  // get dialog control values
@@ -285,8 +281,6 @@ void wing_editor::initialize_data_safe(int full_update)
 		m_no_arrival_warp = 0;
 		m_no_departure_warp = 0;
 		m_no_dynamic = 0;
-		m_no_arrival_log = 0;
-		m_no_departure_log = 0;
 		player_enabled = enable = FALSE;
 
 	} else {
@@ -406,16 +400,6 @@ void wing_editor::initialize_data_safe(int full_update)
 		else
 			m_no_departure_warp = 0;
 
-		if ( Wings[cur_wing].flags & WF_NO_ARRIVAL_LOG )
-			m_no_arrival_log = 1;
-		else
-			m_no_arrival_log = 0;
-
-		if ( Wings[cur_wing].flags & WF_NO_DEPARTURE_LOG )
-			m_no_departure_log = 1;
-		else
-			m_no_departure_log = 0;
-
 		ptr = (CComboBox *) GetDlgItem(IDC_WING_SPECIAL_SHIP);
 		ptr->ResetContent();
 		for (i=0; i<Wings[cur_wing].wave_count; i++)
@@ -492,8 +476,6 @@ void wing_editor::initialize_data_safe(int full_update)
 	GetDlgItem(IDC_NO_ARRIVAL_MESSAGE)->EnableWindow(enable);
 	GetDlgItem(IDC_NO_ARRIVAL_WARP)->EnableWindow(enable);
 	GetDlgItem(IDC_NO_DEPARTURE_WARP)->EnableWindow(enable);
-	GetDlgItem(IDC_NO_WING_ARRIVAL_LOG)->EnableWindow(enable);
-	GetDlgItem(IDC_NO_WING_DEPARTURE_LOG)->EnableWindow(enable);
 
 	if (cur_wing >= 0) {
 		enable = TRUE;
@@ -910,26 +892,6 @@ void wing_editor::update_data_safe()
 		if ( Wings[cur_wing].flags & WF_NO_DYNAMIC )
 			set_modified();
 		Wings[cur_wing].flags &= ~WF_NO_DYNAMIC;
-	}
-
-	if ( m_no_arrival_log ) {
-		if ( !(Wings[cur_wing].flags & WF_NO_ARRIVAL_LOG) )
-			set_modified();
-		Wings[cur_wing].flags |= WF_NO_ARRIVAL_LOG;
-	} else {
-		if ( Wings[cur_wing].flags & WF_NO_ARRIVAL_LOG )
-			set_modified();
-		Wings[cur_wing].flags &= ~WF_NO_ARRIVAL_LOG;
-	}
-
-	if ( m_no_departure_log ) {
-		if ( !(Wings[cur_wing].flags & WF_NO_DEPARTURE_LOG) )
-			set_modified();
-		Wings[cur_wing].flags |= WF_NO_DEPARTURE_LOG;
-	} else {
-		if ( Wings[cur_wing].flags & WF_NO_DEPARTURE_LOG )
-			set_modified();
-		Wings[cur_wing].flags &= ~WF_NO_DEPARTURE_LOG;
 	}
 
 	if (Wings[cur_wing].arrival_cue >= 0)

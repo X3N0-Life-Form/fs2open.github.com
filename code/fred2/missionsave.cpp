@@ -1730,12 +1730,6 @@ int CFred_mission_save::save_objects()
 				fout(" \"weapons-locked\"");
 			if (shipp->flags2 & SF2_SCRAMBLE_MESSAGES)
 				fout(" \"scramble-messages\"");
-			if (Ships[i].flags2 & SF2_NO_ARRIVAL_LOG)
-				fout(" \"no-arrival-log\"");
-			if (Ships[i].flags2 & SF2_NO_DEPARTURE_LOG)
-				fout(" \"no-departure-log\"");
-			if (Ships[i].flags2 & SF2_HIDE_LOG_ENTRIES)
-				fout(" \"hide-log-entries\"");
 			fout(" )");
 		}
 		// -----------------------------------------------------------
@@ -2477,10 +2471,6 @@ int CFred_mission_save::save_wings()
 			fout(" \"no-departure-warp\"");
 		if ( Wings[i].flags & WF_NO_DYNAMIC )
 			fout( " \"no-dynamic\"" );
-		if ( Wings[i].flags & WF_NO_ARRIVAL_LOG )
-			fout(" \"no-arrival-log\"");
-		if ( Wings[i].flags & WF_NO_DEPARTURE_LOG )
-			fout(" \"no-departure-log\"");
 
 		fout(" )");
 

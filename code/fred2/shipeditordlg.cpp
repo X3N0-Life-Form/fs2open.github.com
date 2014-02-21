@@ -388,7 +388,6 @@ void CShipEditorDlg::initialize_data(int full_update)
 	int i, type, ship_count, player_count, total_count, wing = -1, pvalid_count;
 	int a_cue, d_cue, cue_init = 0, cargo = 0, base_ship, base_player, pship = -1;
 	int no_arrival_warp = 0, no_departure_warp = 0, escort_count, ship_orders, current_orders;
-	int no_arrival_log = 0, no_departure_log = 0;
 	int pship_count;  // a total count of the player ships not marked
 	object *objp;
 	CWnd *w = NULL;
@@ -605,8 +604,6 @@ void CShipEditorDlg::initialize_data(int full_update)
 							// set routine local varaiables for ship/object flags
 							no_arrival_warp = (Ships[i].flags & SF_NO_ARRIVAL_WARP) ? 1 : 0;
 							no_departure_warp = (Ships[i].flags & SF_NO_DEPARTURE_WARP) ? 1 : 0;
-							no_arrival_log = (Ships[i].flags2 & SF2_NO_ARRIVAL_LOG) ? 1 : 0;
-							no_departure_log = (Ships[i].flags2 & SF2_NO_DEPARTURE_LOG) ? 1 : 0;
 
 							base_ship = -1;
 							if (!multi_edit)
@@ -638,8 +635,6 @@ void CShipEditorDlg::initialize_data(int full_update)
 
 							no_arrival_warp = tristate_set(Ships[i].flags & SF_NO_ARRIVAL_WARP, no_arrival_warp);
 							no_departure_warp = tristate_set(Ships[i].flags & SF_NO_DEPARTURE_WARP, no_departure_warp);
-							no_arrival_log = tristate_set(Ships[i].flags2 & SF2_NO_ARRIVAL_LOG, no_arrival_log);
-							no_departure_log = tristate_set(Ships[i].flags2 & SF2_NO_DEPARTURE_LOG, no_departure_log);
 						}
 					}
 				}
@@ -1389,54 +1384,6 @@ int CShipEditorDlg::update_ship(int ship)
 				set_modified();
 
 			Ships[ship].flags |= SF_NO_DEPARTURE_WARP;
-			break;
-	}
-
-	switch( m_no_departure_warp.GetCheck() ) {
-		case 0:
-			if (Ships[ship].flags & SF_NO_DEPARTURE_WARP)
-				set_modified();
-
-			Ships[ship].flags &= ~SF_NO_DEPARTURE_WARP;
-			break;
-
-		case 1:
-			if (!(Ships[ship].flags & SF_NO_DEPARTURE_WARP))
-				set_modified();
-
-			Ships[ship].flags |= SF_NO_DEPARTURE_WARP;
-			break;
-	}
-
-	switch( m_no_arrival_log.GetCheck() ) {
-		case 0:
-			if (Ships[ship].flags2 & SF2_NO_ARRIVAL_LOG)
-				set_modified();
-
-			Ships[ship].flags2 &= ~SF2_NO_ARRIVAL_LOG;
-			break;
-
-		case 1:
-			if (!(Ships[ship].flags2 & SF2_NO_ARRIVAL_LOG))
-				set_modified();
-
-			Ships[ship].flags2 |= SF2_NO_ARRIVAL_LOG;
-			break;
-	}
-
-	switch( m_no_departure_log.GetCheck() ) {
-		case 0:
-			if (Ships[ship].flags2 & SF2_NO_DEPARTURE_LOG)
-				set_modified();
-
-			Ships[ship].flags2 &= ~SF2_NO_DEPARTURE_LOG;
-			break;
-
-		case 1:
-			if (!(Ships[ship].flags2 & SF2_NO_DEPARTURE_LOG))
-				set_modified();
-
-			Ships[ship].flags2 |= SF2_NO_DEPARTURE_LOG;
 			break;
 	}
 
@@ -2443,21 +2390,4 @@ void CShipEditorDlg::OnRestrictDeparture()
 	dlg.m_path_mask = &Ships[marked_ship].departure_path_mask;
 
 	dlg.DoModal();
-}
-
-void CShipEditorDlg::OnBnClickedNoArrivalLog()
-{	
-	if (m_no_arrival_log.GetCheck() == 1)
-		m_no_arrival_log.SetCheck(0);
-	else
-		m_no_arrival_log.SetCheck(1);
-}
-
-
-void CShipEditorDlg::OnBnClickedNoDepartureLog()
-{
-	if (m_no_departure_log.GetCheck() == 1)
-		m_no_departure_log.SetCheck(0);
-	else
-		m_no_departure_log.SetCheck(1);
 }
