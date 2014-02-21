@@ -354,7 +354,6 @@ BOOL ship_flags_dlg::OnInitDialog()
 	m_nav_carry.SetCheck(nav_carry);
 	m_nav_needslink.SetCheck(nav_needslink);
 	m_hide_ship_name.SetCheck(hide_ship_name);
-	m_hide_log_entries.SetCheck(hide_log_entries);
 	m_disable_ets.SetCheck(no_ets);
 	m_cloaked.SetCheck(cloaked);
 	m_scramble_messages.SetCheck(scramble_messages);
@@ -1444,15 +1443,6 @@ void ship_flags_dlg::OnHideShipName()
  		m_hide_ship_name.SetCheck(0);
 	} else {
 		m_hide_ship_name.SetCheck(1);
-	}
-}
-
-void ship_flags_dlg::OnHideLogEntries()
-{
-	if (m_hide_log_entries.GetCheck() == 1) {
- 		m_hide_log_entries.SetCheck(0);
-	} else {
-		m_hide_log_entries.SetCheck(1);
 	}
 }
 
