@@ -313,7 +313,8 @@ char *Parse_object_flags_2[MAX_PARSE_OBJECT_FLAGS_2] = {
 	"scramble-messages",
 	"no-arrival-log",
 	"no-departure-log",
-	"hide-log-entries"
+	"hide-log-entries",
+	"is_harmless"
 };
 
 char *Mission_event_log_flags[MAX_MISSION_EVENT_LOG_FLAGS] = {
