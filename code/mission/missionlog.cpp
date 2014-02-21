@@ -222,19 +222,18 @@ void mission_log_add_entry(int type, const char *pname, const char *sname, int i
 	entry->primary_team = -1;
 	entry->secondary_team = -1;
 
-	// determine the contents of the flags member based on the type of entry we added.  We need to store things
-	// like team for the primary and (possibly) secondary object for this entry.
-	switch ( type ) {
-	int index;
-
 	// Note: might need the multiplayer special case from below
-	index = ship_name_lookup(pname);
+	int index = ship_name_lookup(pname);
 	if (index >= 0) {
 		ship* shipp = &Ships[index];
 		if ((shipp->flags2 & SF2_HIDE_LOG_ENTRIES) != 0) {
 			entry->flags |= MLF_HIDDEN;
 		}
 	}
+
+	// determine the contents of the flags member based on the type of entry we added.  We need to store things
+	// like team for the primary and (possibly) secondary object for this entry.
+	switch ( type ) {
 
 	case LOG_SHIP_DESTROYED:
 	case LOG_SHIP_ARRIVED:
