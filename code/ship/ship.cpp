@@ -5168,6 +5168,8 @@ void ship::clear()
 
 	armor_type_idx = -1;
 	shield_armor_type_idx = -1;
+	armor_value = 1.0f;
+	shield_armor_value = 1.0f;
 	collision_damage_type_idx = -1;
 	debris_damage_type_idx = -1;
 	debris_net_sig = 0;
@@ -5312,6 +5314,8 @@ void ship_set(int ship_index, int objnum, int ship_type)
 
 	shipp->armor_type_idx = sip->armor_type_idx;
 	shipp->shield_armor_type_idx = sip->shield_armor_type_idx;
+	shipp->armor_value = 1.0f;
+	shipp->shield_armor_value = 1.0f;
 	shipp->collision_damage_type_idx =  sip->collision_damage_type_idx;
 	shipp->debris_damage_type_idx = sip->debris_damage_type_idx;
 
@@ -5494,6 +5498,7 @@ void ship_subsys::clear()
 
 	subsys_guardian_threshold = 0;
 	armor_type_idx = -1;
+	armor_value = 1.0f;
 
 	turret_best_weapon = -1;
 	turret_last_fire_direction = vmd_zero_vector;
@@ -5670,6 +5675,7 @@ int subsys_set(int objnum, int ignore_subsys_info)
 
 		ship_system->subsys_guardian_threshold = 0;
 		ship_system->armor_type_idx = model_system->armor_type_idx;
+		ship_system->armor_value = 1.0f;
 		ship_system->turret_next_fire_stamp = timestamp(0);
 		ship_system->turret_next_enemy_check_stamp = timestamp(0);
 		ship_system->turret_enemy_objnum = -1;
@@ -9129,6 +9135,9 @@ int ship_create(matrix *orient, vec3d *pos, int ship_type, char *ship_name)
 		}
 		sip->flags |= SIF_PATH_FIXUP;
 	}
+
+	shipp->armor_value = 1.0f;
+	shipp->shield_armor_value = 1.0f;
 
 	// Add this ship to Ship_obj_list
 	shipp->ship_list_index = ship_obj_list_add(objnum);

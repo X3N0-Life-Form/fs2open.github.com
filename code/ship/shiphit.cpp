@@ -728,6 +728,7 @@ float do_subobj_hit_stuff(object *ship_objp, object *other_obj, vec3d *hitpos, i
 				damage_to_apply *= ss_dif_scale;
 			}
 
+			damage_to_apply *= subsystem->armor_value;
 			subsystem->current_hits -= damage_to_apply;
 			if (!(subsystem->flags & SSF_NO_AGGREGATE)) {
 				ship_p->subsys_info[subsystem->system_info->type].aggregate_current_hits -= damage_to_apply;
@@ -2097,6 +2098,7 @@ static void ship_do_damage(object *ship_objp, object *other_obj, vec3d *hitpos, 
 				damage *= difficulty_scale_factor;
 			}
 
+			damage *= shipp->shield_armor_value;
 			damage = apply_damage_to_shield(ship_objp, quadrant, damage);
 
 			if(damage > 0.0f){
@@ -2199,6 +2201,7 @@ static void ship_do_damage(object *ship_objp, object *other_obj, vec3d *hitpos, 
 						return;
 					}
 				}
+				damage *= shipp->armor_value;
 				ship_objp->hull_strength -= damage;
 			}
 

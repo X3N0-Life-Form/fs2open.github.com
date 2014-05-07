@@ -469,6 +469,7 @@ sexp_oper Operators[] = {
 	
 	//Armor and Damage Types Sub-Category
 	{ "set-armor-type",					OP_SET_ARMOR_TYPE,						4,	INT_MAX,	SEXP_ACTION_OPERATOR,	},  // FUBAR
+	{ "set-armor-value",				OP_SET_ARMOR_VALUE,						3,	INT_MAX,	SEXP_ACTION_OPERATOR	},	// X3N0-Life-Form
 	{ "weapon-set-damage-type",			OP_WEAPON_SET_DAMAGE_TYPE,				4,	INT_MAX,	SEXP_ACTION_OPERATOR,	},	// FUBAR
 	{ "ship-set-damage-type",			OP_SHIP_SET_DAMAGE_TYPE,				4,	INT_MAX,	SEXP_ACTION_OPERATOR,	},	// FUBAR
 	{ "ship-set-shockwave-damage-type",	OP_SHIP_SHOCKWAVE_SET_DAMAGE_TYPE,		3,	INT_MAX,	SEXP_ACTION_OPERATOR,	},	// FUBAR
@@ -2060,13 +2061,13 @@ int check_sexp_syntax(int node, int return_type, int recursive, int *bad_node, i
 				}
 
 				// check for the special "hull" value
-				if ( (Operators[op].value == OP_SABOTAGE_SUBSYSTEM) || (Operators[op].value == OP_REPAIR_SUBSYSTEM) || (Operators[op].value == OP_SET_SUBSYSTEM_STRNGTH) || (Operators[op].value == OP_SET_ARMOR_TYPE) || (Operators[op].value == OP_BEAM_FIRE)) {
+				if ( (Operators[op].value == OP_SABOTAGE_SUBSYSTEM) || (Operators[op].value == OP_REPAIR_SUBSYSTEM) || (Operators[op].value == OP_SET_SUBSYSTEM_STRNGTH) || (Operators[op].value == OP_SET_ARMOR_TYPE) || (Operators[op].value == OP_BEAM_FIRE) || (Operators[op].value == OP_SET_ARMOR_VALUE)) {
 					if ( !stricmp( CTEXT(node), SEXP_HULL_STRING) || !stricmp( CTEXT(node), SEXP_SIM_HULL_STRING) ){
 						break;
 					}
 				}
 				// check for special "shields" value for armor types
-				if (Operators[op].value == OP_SET_ARMOR_TYPE) {
+				if (Operators[op].value == OP_SET_ARMOR_TYPE || (Operators[op].value == OP_SET_ARMOR_VALUE)) {
 					if ( !stricmp( CTEXT(node), SEXP_SHIELD_STRING) || !stricmp( CTEXT(node), SEXP_SIM_HULL_STRING) ){
 						break;
 					}
@@ -17174,6 +17175,58 @@ void sexp_set_armor_type(int node)
 	}
 }
 
+void sexp_set_armor_value(int node)
+{
+	int sindex;
+	float a_value;
+	ship_subsys *ss = NULL;
+	ship *shipp = NULL;
+	ship_info *sip = NULL;
+
+	// get ship
+	sindex = ship_name_lookup(CTEXT(node));
+	if(sindex < 0) {
+		return;
+	}
+	if(Ships[sindex].objnum < 0) {
+		return;
+	}
+	shipp = &Ships[sindex];
+	sip = &Ship_info[shipp->ship_info_index];
+
+	// get value
+	a_value = ((float)eval_num(CDR(node))) / 100;
+
+	node = CDR(node);
+	// set value
+	while (node != -1)
+	{
+		if (!stricmp(SEXP_HULL_STRING, CTEXT(node)))
+		{
+			// we are setting the ship itself
+			shipp->armor_value = a_value;
+		}
+		else if (!stricmp(SEXP_SHIELD_STRING, CTEXT(node)))
+		{
+			// we are setting the ships shields
+			shipp->shield_armor_value = a_value;
+		}
+		else 
+		{
+			// get the subsystem
+			ss = ship_get_subsys(&Ships[sindex], CTEXT(node));
+			if(ss == NULL){
+				node = CDR(node);
+				continue;
+			}
+			// set the value
+			ss->armor_value = a_value;
+		}
+		// next
+		node = CDR(node);
+	}
+}
+
 void sexp_weapon_set_damage_type(int node)
 {	
 	int windex, damage, swave, rset;
@@ -23579,6 +23632,11 @@ int eval_sexp(int cur_node, int referenced_node)
 				sexp_set_armor_type(node);
 				break;
 
+			case OP_SET_ARMOR_VALUE:
+				sexp_val = SEXP_TRUE;
+				sexp_set_armor_value(node);
+				break;
+
 			case OP_WEAPON_SET_DAMAGE_TYPE:
 				sexp_val = SEXP_TRUE;
 				sexp_weapon_set_damage_type(node);
@@ -25021,6 +25079,7 @@ int query_operator_return_type(int op)
 		case OP_TURRET_SET_TARGET_PRIORITIES:
 		case OP_TURRET_SET_TARGET_ORDER:
 		case OP_SET_ARMOR_TYPE:
+		case OP_SET_ARMOR_VALUE:
 		case OP_WEAPON_SET_DAMAGE_TYPE:
 		case OP_SHIP_SET_DAMAGE_TYPE:
 		case OP_SHIP_SHOCKWAVE_SET_DAMAGE_TYPE:
@@ -26618,6 +26677,15 @@ int query_operator_argument_type(int op, int argnum)
 				return OPF_BOOL;
 			} else if(argnum == 2) {
 				return OPF_ARMOR_TYPE;
+			} else {
+				return OPF_SUBSYSTEM;
+			}
+
+		case OP_SET_ARMOR_VALUE:
+			if (argnum == 0) {
+				return OPF_SHIP;
+			} else if (argnum == 1) {
+				return OPF_NUMBER;
 			} else {
 				return OPF_SUBSYSTEM;
 			}
@@ -28762,6 +28830,7 @@ int get_subcategory(int sexp_id)
 
 
 		case OP_SET_ARMOR_TYPE:
+		case OP_SET_ARMOR_VALUE:
 		case OP_WEAPON_SET_DAMAGE_TYPE:
 		case OP_SHIP_SET_DAMAGE_TYPE:
 		case OP_SHIP_SHOCKWAVE_SET_DAMAGE_TYPE:
@@ -31496,6 +31565,12 @@ sexp_help_struct Sexp_help[] = {
 		"\t1: Ship subsystem is on\r\n"
 		"\t2: Set = true/Reset to defualt = false\r\n"
 		"\t3: Armor type to set or <none>\r\n"
+		"\trest: Subsystems to set (hull for ship, shield for shields)\r\n"},
+
+	{OP_SET_ARMOR_VALUE, "set-armor-value\r\n"
+		"\tSets the armor value for a ship or subsystem. The armor value is factored in after regular armor type calculations.\r\n"
+		"\t1: Ship subsystem is on\r\n"
+		"\t2: Armor value to set (in %; <100 reduces damage taken, >100 increases it)\r\n"
 		"\trest: Subsystems to set (hull for ship, shield for shields)\r\n"},
 
 	{ OP_WEAPON_SET_DAMAGE_TYPE, "weapon-set-damage-type\r\n"

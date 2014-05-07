@@ -321,6 +321,7 @@ public:
 
 	int subsys_guardian_threshold;	// Goober5000
 	int armor_type_idx;				// FUBAR
+	float armor_value;
 
 	// turret info
 	//Important -WMC
@@ -789,6 +790,8 @@ public:
 	int ammo_low_complaint_count;				// number of times this ship has complained about low ammo
 	int armor_type_idx;
 	int shield_armor_type_idx;
+	float armor_value;
+	float shield_armor_value;
 	int collision_damage_type_idx;
 	int debris_damage_type_idx;
 	ushort debris_net_sig;						// net signiture of the first piece of debris this ship has
