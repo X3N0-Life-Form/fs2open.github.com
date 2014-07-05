@@ -234,8 +234,6 @@ protected:
 	
 	SCP_string default_text;
 
-	char parent[NAME_LENGTH];
-
 	// Render to texture stuff
 	char texture_target_fname[MAX_FILENAME_LEN];
 	int texture_target;
@@ -257,7 +255,6 @@ public:
 	void initFont(int input_font_num);
 	void initCockpitTarget(const char* display_name, int _target_x, int _target_y, int _target_w, int _target_h, int _canvas_w, int _canvas_h);
 	void initRenderStatus(bool render);
-	void initParent(char* parent_name);
 
 	int getConfigType();
 	int getObjectType();

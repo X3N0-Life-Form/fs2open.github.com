@@ -1118,15 +1118,6 @@ void HudGauge::initCockpitTarget(const char* display_name, int _target_x, int _t
 	}
 }
 
-void HudGauge::initParent(char* parent_name)
-{
-	if(parent_name) {
-		strcpy_s(parent, parent_name);
-	} else {
-		parent[0] = '\0';
-	}
-}
-
 bool HudGauge::setupRenderCanvas(int render_target)
 {
 	if (texture_target_fname[0] != '\0') {

@@ -1303,7 +1303,6 @@ void load_gauge_custom(gauge_settings* settings)
 	ubyte r = 255, g = 255, b = 255;
 	int colors[3] = {255, 255, 255};
 	bool lock_color = false;
-	char parent[MAX_FILENAME_LEN];
 
 	// render to texture parameters
 	char display_name[MAX_FILENAME_LEN] = "";
@@ -1420,10 +1419,6 @@ void load_gauge_custom(gauge_settings* settings)
 			stuff_boolean(&active_by_default);
 		}
 
-		if(optional_string("Parent:")) {
-			stuff_string(parent, F_NAME, MAX_FILENAME_LEN);
-		}
-
 		required_string("Filename:");
 		stuff_string(filename, F_NAME, MAX_FILENAME_LEN);
 	} else {
@@ -1443,7 +1438,6 @@ void load_gauge_custom(gauge_settings* settings)
 	hud_gauge->updateColor(colors[0], colors[1], colors[2]);
 	hud_gauge->lockConfigColor(lock_color);
 	hud_gauge->initCockpitTarget(display_name, display_offset[0], display_offset[1], display_size[0], display_size[1], canvas_size[0], canvas_size[1]);
-	hud_gauge->initParent(parent);
 
 	if(settings->ship_idx->at(0) >= 0) {
 		for (SCP_vector<int>::iterator ship_index = settings->ship_idx->begin(); ship_index != settings->ship_idx->end(); ++ship_index) {
