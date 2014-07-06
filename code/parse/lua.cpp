@@ -13238,6 +13238,105 @@ ADE_FUNC(getHUDGaugeHandle, l_HUD, "string Name", "Returns a handle to a specifi
 		return ade_set_args(L, "o", l_HudGauge.Set(*gauge));
 }
 
+ADE_FUNC(setCustomGaugeText, l_HUD, "string (Name of the Custom Gauge), string (Text of the Custom Gauge)", "Sets the text used to draw the specified custom gauge", "boolean", "If the operation was successful")
+
+{
+	char* gaugename = NULL;
+	char* text = NULL;
+	HudGauge* gauge = NULL;
+
+	if (!ade_get_args(L, "ss", &gaugename, &text))
+	{
+		return ADE_RETURN_FALSE;
+	}
+
+	gauge = hud_get_gauge(gaugename);
+
+	if (gauge == NULL)
+	{
+		return ADE_RETURN_FALSE;
+	}
+
+	gauge->updateCustomGaugeText(text);
+
+	return ADE_RETURN_TRUE;
+}
+
+ADE_FUNC(setCustomGaugeCoords, l_HUD, "string (Name of the Custom Gauge), number (x coordinate), number (y coordinate)", "Sets the color used to draw the specified custom gauge", "boolean", "If the operation was successful")
+
+{
+	char* gaugename = NULL;
+	int coord_x = 0;
+	int coord_y = 0;
+	HudGauge* gauge = NULL;
+
+	if (!ade_get_args(L, "sii", &gaugename, &coord_x, &coord_y))
+	{
+		return ADE_RETURN_FALSE;
+	}
+
+	gauge = hud_get_gauge(gaugename);
+
+	if (gauge == NULL)
+	{
+		return ADE_RETURN_FALSE;
+	}
+
+	gauge->updateCustomGaugeCoords(coord_x, coord_y);
+
+	return ADE_RETURN_TRUE;
+}
+
+ADE_FUNC(setCustomGaugeFrame, l_HUD, "string (Name of the Custom Gauge), number (The index of the frame)", "Sets the drawn frame of the specified custom gauge", "boolean", "If the operation was successful")
+
+{
+	char* gaugename = NULL;
+	int frame_idx = 0;
+	HudGauge* gauge = NULL;
+
+	if (!ade_get_args(L, "si", &gaugename, &frame_idx))
+	{
+		return ADE_RETURN_FALSE;
+	}
+
+	gauge = hud_get_gauge(gaugename);
+
+	if (gauge == NULL || frame_idx < 0)
+	{
+		return ADE_RETURN_FALSE;
+	}
+
+	gauge->updateCustomGaugeFrame(frame_idx);
+
+	return ADE_RETURN_TRUE;
+}
+
+ADE_FUNC(setCustomGaugeColor, l_HUD, "string (Name of the Custom Gauge), number (red), number (green), number (blue)", "Sets the color used to draw the specified custom gauge", "boolean", "If the operation was successful")
+
+{
+	char* gaugename = NULL;
+	int r = 0;
+	int g = 0;
+	int b = 0;
+	HudGauge* gauge = NULL;
+
+	if (!ade_get_args(L, "siii", &gaugename, &r, &g, &b))
+	{
+		return ADE_RETURN_FALSE;
+	}
+
+	gauge = hud_get_gauge(gaugename);
+
+	if (gauge == NULL)
+	{
+		return ADE_RETURN_FALSE;
+	}
+
+	gauge->updateColor(r, g, b);
+
+	return ADE_RETURN_TRUE;
+}
+
 //**********LIBRARY: Graphics
 ade_lib l_Graphics("Graphics", NULL, "gr", "Graphics Library");
 
