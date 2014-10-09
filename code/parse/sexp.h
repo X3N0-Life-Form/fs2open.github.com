@@ -198,7 +198,8 @@ class waypoint_list;
 #define CHANGE_SUBCATEGORY_JUMP_NODES						(0x0010 | OP_CATEGORY_CHANGE)
 #define CHANGE_SUBCATEGORY_SPECIAL_EFFECTS					(0x0011 | OP_CATEGORY_CHANGE)
 #define CHANGE_SUBCATEGORY_VARIABLES						(0x0012 | OP_CATEGORY_CHANGE)
-#define CHANGE_SUBCATEGORY_OTHER							(0x0013 | OP_CATEGORY_CHANGE)
+#define CHANGE_SUBCATEGORY_COLLECTIONS						(0x0013 | OP_CATEGORY_CHANGE)
+#define CHANGE_SUBCATEGORY_OTHER							(0x0014 | OP_CATEGORY_CHANGE)
 
 
 #define STATUS_SUBCATEGORY_MISSION							(0x0000 | OP_CATEGORY_STATUS)
@@ -860,6 +861,10 @@ char *CTEXT(int n);
 // flags for sexpressions -- masked onto the end of the type field
 #define SEXP_FLAG_PERSISTENT				(1<<31)		// should this sexp node be persistant across missions
 #define SEXP_FLAG_VARIABLE					(1<<30)
+#define SEXP_FLAG_LIST_COLLECTION			(1<<29)
+#define SEXP_FLAG_MAP_COLLECTION				(1<<28)
+
+#define SEXP_FLAG_COLLECTION					(SEXP_FLAG_LIST_COLLECTION | SEXP_FLAG_MAP_COLLECTION)
 
 // sexp variable definitions
 #define SEXP_VARIABLE_CHAR					('@')
@@ -880,6 +885,18 @@ char *CTEXT(int n);
 #define SEXP_VARIABLE_CAMPAIGN_PERSISTENT	(1<<29)	//	(0x0100)
 //Karajorma
 #define SEXP_VARIABLE_NETWORK				(1<<28)
+
+// sexp collection definitions
+#define SEXP_COLLECTION_CHAR					('&')
+#define SEXP_COLLECTION_LIST							(1<<0)
+#define SEXP_COLLECTION_MAP							(1<<1)
+#define SEXP_COLLECTION_STRONGLY_TYPED_KEYS			(1<<2)
+#define SEXP_COLLECTION_STRONGLY_TYPED_DATA			(1<<3)
+#define SEXP_COLLECTION_NUMBER_DATA					(1<<4)
+#define SEXP_COLLECTION_STRING_DATA					(1<<5)
+#define SEXP_COLLECTION_NUMBER_KEYS					(1<<6)
+#define SEXP_COLLECTION_STRING_KEYS					(1<<7)
+
 
 #define BLOCK_EXP_SIZE					6
 #define INNER_RAD							0
@@ -905,6 +922,7 @@ char *CTEXT(int n);
 #define SEXP_ATOM_OPERATOR		1
 #define SEXP_ATOM_NUMBER		2
 #define SEXP_ATOM_STRING		3
+#define SEXP_ATOM_COLLECTION		4
 
 // defines to short circuit evaluation when possible. Also used when goals can't
 // be satisfied yet because ship (or wing) hasn't been created yet.
@@ -1038,6 +1056,15 @@ typedef struct sexp_variable {
 	char	variable_name[TOKEN_LENGTH];
 } sexp_variable;
 
+class sexp_collection 
+{
+	public:
+		SCP_string	container_name;
+		int type;
+		int opf_type;
+		SCP_deque<SCP_string>	list_data;
+		SCP_hash_map<SCP_string, SCP_string> map_data;
+};
 
 #define ARG_ITEM_F_DUP	(1<<0)
 
@@ -1073,6 +1100,8 @@ extern sexp_node *Sexp_nodes;
 
 extern sexp_variable Sexp_variables[MAX_SEXP_VARIABLES];
 extern sexp_variable Block_variables[MAX_SEXP_VARIABLES];
+
+extern SCP_vector<sexp_collection> Sexp_collections;
 
 extern sexp_oper Operators[];
 extern int Num_operators;
@@ -1123,6 +1152,8 @@ extern int check_sexp_syntax(int node, int return_type = OPR_BOOL, int recursive
 extern int get_sexp_main(void);	//	Returns start node
 extern int run_sexp(const char* sexpression); // debug and lua sexps
 extern int stuff_sexp_variable_list();
+extern void stuff_sexp_list_collection();
+extern void stuff_sexp_map_collection();
 extern int eval_sexp(int cur_node, int referenced_node = -1);
 extern int is_sexp_true(int cur_node, int referenced_node = -1);
 extern int query_operator_return_type(int op);
@@ -1171,6 +1202,9 @@ int sexp_add_variable(const char *text, const char *var_name, int type, int inde
 bool generate_special_explosion_block_variables();
 int num_block_variables();
 bool has_special_explosion_block_index(ship *shipp, int *index);
+
+// sexp_collection
+int get_index_sexp_collection_name(const char *text);
 
 // Karajorma
 void set_primary_ammo (int ship_index, int requested_bank, int requested_ammo, int rearm_limit=-1, bool update=true);

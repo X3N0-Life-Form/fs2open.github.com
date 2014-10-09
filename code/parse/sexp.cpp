@@ -842,6 +842,10 @@ sexp_node *Sexp_nodes = NULL;
 sexp_variable Sexp_variables[MAX_SEXP_VARIABLES];
 sexp_variable Block_variables[MAX_SEXP_VARIABLES];			// used for compatibility with retail. 
 
+SCP_vector<sexp_collection> Sexp_collections;
+// SCP_string Temp_collection_string;
+SCP_vector<SCP_string> Temp_collection_strings;
+
 int Num_special_expl_blocks;
 
 SCP_vector<int> Current_sexp_operator;
@@ -888,6 +892,7 @@ void update_sexp_references(const char *old_name, const char *new_name, int form
 int sexp_determine_team(char *subj);
 int extract_sexp_variable_index(int node);
 void init_sexp_vars();
+void init_sexp_collections();
 int eval_num(int node);
 
 // for handling variables
@@ -1100,6 +1105,7 @@ void init_sexp()
 
 	sexp_nodes_init();
 	init_sexp_vars();
+	init_sexp_collections();
 	Locked_sexp_false = Locked_sexp_true = -1;
 
 	Locked_sexp_false = alloc_sexp("false", SEXP_LIST, SEXP_ATOM_OPERATOR, -1, -1);
@@ -1709,6 +1715,13 @@ int check_sexp_syntax(int node, int return_type, int recursive, int *bad_node, i
 		Assert(Sexp_nodes[node].type != SEXP_NOT_USED);
 		if (bad_node)
 			*bad_node = node;
+
+		// for now we'll completely ignore SEXP containters
+		if (Sexp_nodes[node].subtype & SEXP_ATOM_COLLECTION)  {
+			node = Sexp_nodes[node].rest;
+			argnum++;
+			continue; 
+		}
 
 		if (Sexp_nodes[node].subtype == SEXP_ATOM_LIST) {
 			i = Sexp_nodes[node].first;
@@ -3134,6 +3147,11 @@ int check_sexp_syntax(int node, int return_type, int recursive, int *bad_node, i
 				}
 				break;
 
+/*			case OPF_LIST_COLLECTION_NAME:
+				// TO DO : Add error code here!
+				break;
+				*/
+
 			default:
 				Error(LOCATION, "Unhandled argument format");
 		}
@@ -3320,6 +3338,40 @@ int get_sexp()
 			Mp += (len + 2);
 
 		}
+
+		// collection
+		else if (*Mp == SEXP_COLLECTION_CHAR) {
+			Mp++;
+
+			char collection[TOKEN_LENGTH];
+			stuff_string(collection, F_NAME, TOKEN_LENGTH, "&"); 
+
+			// bump past closing '&'
+			Mp += 2;
+
+			// what kind of collection?
+			int collection_index = get_index_sexp_collection_name(collection);
+
+			if (collection_index == -1) {
+				Error(LOCATION, "Unknown collection type detected in mission");
+			}
+
+			// advance to the control options since we'll read them in using get_sexp() below
+			while ( *Mp != '(' ) {
+				Mp++;
+			}
+			Mp++ ;
+
+			if (Sexp_collections[collection_index].type & SEXP_COLLECTION_MAP) {
+				node = alloc_sexp(collection, (SEXP_ATOM | SEXP_FLAG_MAP_COLLECTION), SEXP_ATOM_COLLECTION, get_sexp(), -1);
+			}
+			else if ( Sexp_collections[collection_index].type & SEXP_COLLECTION_LIST) {
+				node = alloc_sexp(collection, (SEXP_ATOM | SEXP_FLAG_LIST_COLLECTION), SEXP_ATOM_COLLECTION, get_sexp(), -1);
+			}
+
+			ignore_white_space();
+		}
+
 
 		// Sexp operator or number
 		else {
@@ -3537,6 +3589,118 @@ int get_sexp()
 
 	return start;
 }
+
+
+bool stuff_one_generic_sexp_collection(SCP_string &name, int &type, SCP_vector<SCP_string> &data)
+{
+	SCP_string temp_type_string;
+	data.clear();
+ 
+	required_string("$Name:");
+	stuff_string(name, F_NAME); 
+
+	required_string("$Data Type:");
+	stuff_string(temp_type_string, F_NAME);
+	if (!strcmp(temp_type_string.c_str(), "Number")) {
+		type |= SEXP_COLLECTION_NUMBER_DATA; 
+	}
+	else if (!strcmp(temp_type_string.c_str(), "String")) {
+		type |= SEXP_COLLECTION_STRING_DATA; 
+	}
+	else {
+		Warning(LOCATION, "Unknown SEXP Collection type %s found", temp_type_string.c_str()); 
+		log_printf(LOGFILE_EVENT_LOG, "Unknown SEXP Collection type %s found", temp_type_string.c_str()); 
+		return false;
+	}
+
+	if (optional_string("$Key Type:")) {
+		Assertion ((type & SEXP_COLLECTION_MAP), "$Key Type: found for collection which doesn't use keys!");  
+
+		stuff_string(temp_type_string, F_NAME);
+		if (!strcmp(temp_type_string.c_str(), "Number")) {
+			type |= SEXP_COLLECTION_NUMBER_KEYS; 
+		}
+		else if (!strcmp(temp_type_string.c_str(), "String")) {
+			type |= SEXP_COLLECTION_STRING_KEYS; 
+		}
+		else {
+			Warning(LOCATION, "Unknown SEXP Collection type %s found", temp_type_string.c_str()); 
+			log_printf(LOGFILE_EVENT_LOG, "Unknown SEXP Collection type %s found", temp_type_string.c_str()); 
+			return false;
+		}
+	}
+
+	if (optional_string("+Strongly Typed Keys")) {
+		Assertion ((type & SEXP_COLLECTION_MAP), "+Strongly Typed Keys found for collection which doesn't use keys!");  
+		type |= SEXP_COLLECTION_STRONGLY_TYPED_KEYS;
+	}
+
+	if (optional_string("+Strongly Typed Data")) {
+		type |= SEXP_COLLECTION_STRONGLY_TYPED_DATA;
+	}
+
+	required_string("$Data:"); 
+	stuff_string_list(data); 
+
+	return true;
+}
+
+/**
+ * Stuffs a sexp list type collection
+ */
+
+void stuff_sexp_list_collection()
+{	
+	sexp_collection temp_list; 
+	SCP_vector<SCP_string>	parsed_data;
+
+	
+	while (required_string_either("$End Lists", "$Name:")) {
+		temp_list.type = SEXP_COLLECTION_LIST; 
+		if (stuff_one_generic_sexp_collection(temp_list.container_name, temp_list.type, parsed_data)){
+			temp_list.list_data.clear();
+			for (int i = 0; i < (int)parsed_data.size(); i++) {
+				temp_list.list_data.push_back(parsed_data[i]);
+			}
+		}
+
+		Sexp_collections.push_back(temp_list);
+	}
+}
+
+
+/**
+ * Stuffs a sexp map type collection
+ */
+void stuff_sexp_map_collection()
+{		
+	sexp_collection temp_map; 	
+	SCP_vector<SCP_string>	parsed_data;
+
+	
+	while (required_string_either("$End Maps", "$Name:")) {
+		temp_map.type = SEXP_COLLECTION_MAP; 
+		if (stuff_one_generic_sexp_collection(temp_map.container_name, temp_map.type, parsed_data)){
+
+			// if the data is corrupt, discard it
+			if (parsed_data.size() % 2 != 0) {
+				Warning(LOCATION, "Data in the SEXP Map collection is corrupt. Must be an even number of entries. Instead have %d", parsed_data.size() );
+				log_printf(LOGFILE_EVENT_LOG, "Data in the SEXP Map collection is corrupt. Must be an even number of entries. Instead have %d", parsed_data.size() ); 
+				continue;
+			}
+
+			// move the data into the new entry
+			temp_map.map_data.clear();
+			for (int i = 0; i < (int)parsed_data.size(); i = i+2) {
+				temp_map.map_data.insert(std::pair<SCP_string, SCP_string>(parsed_data[i], parsed_data[i+1]));
+			}
+		}
+
+
+		Sexp_collections.push_back(temp_map);
+	}
+}
+
 
 
 /**
@@ -28256,6 +28420,347 @@ int extract_sexp_variable_index(int node)
 	return variable_index;
 }
 
+ 
+/*
+-// Takes an Sexp_node.text pointing to a variable (of form "Sexp_variables[xx]=string" or "Sexp_variables[xx]=number")
+-// and returns the index into the Sexp_variables array of the actual value 
+-int extract_sexp_variable_index(int node)
++char* deal_with_map_collection(int n) 
+ {
+-	char *text = Sexp_nodes[node].text;
+-	char char_index[8];
+-	char *start_index;
+-	int variable_index;
++	Assertion((Sexp_nodes[n].type & SEXP_FLAG_MAP_COLLECTION), "deal_with_map_collection() called for a collection which isn't a map."); 
+ 
+-	// get past the '['
+-	start_index = text + 15;
+-	Assert(isdigit(*start_index));
++	int index = get_index_sexp_map_collection_name(Sexp_nodes[n].text);
++	if (index < 0)  {
++		return "";
++	}
++	
++	if (Sexp_map_collections[index].data.empty()) {
++		return "";
++	}
+ 
+-	int len = 0;
++	SCP_string temp_string; 
+ 
+-	while ( *start_index != ']' ) {
+-		char_index[len++] = *(start_index++);
+-		Assert(len < 3);
++	int key_node = CAR(n); 
++	SCP_hash_map<SCP_string, SCP_string>::iterator value = Sexp_map_collections[index].data.find(CTEXT(key_node));
++
++	// not found
++	if (value == Sexp_map_collections[index].data.end()) {
++		// probably should write to the event.log that the element wasn't found here. 
++		return "";
+ 	}
+ 
+-	Assert(len > 0);
+-	char_index[len] = 0;	// append null termination to string
++	Temp_CTEXT_strings.push_back(value->second);
++	return const_cast<char*>(Temp_CTEXT_strings.back().c_str());
++}
+ 
+-	variable_index = atoi(char_index);
+-	Assert( (variable_index >= 0) && (variable_index < MAX_SEXP_VARIABLES) );
++char* deal_with_list_collection(int n) 
++{
++	Assertion((Sexp_nodes[n].type & SEXP_FLAG_LIST_COLLECTION), "deal_with_list_collection() called for a collection which isn't a list."); 
+ 
+-	return variable_index;
++	// the node flags will tell us what we're supposed to do with this collection
++	int actual_flag = Sexp_nodes[n].flags & SNF_COLLECTION_MASK; 
++
++	int index = get_index_sexp_list_collection_name(Sexp_nodes[n].text);
++	if (index < 0)  {
++		return "";
++	}
++	
++	if (Sexp_list_collections[index].data.empty()) {
++		return "";
++	}
++
++	SCP_string temp_string; 
++	int parent = -1; 
++	int parent_node = -1; 
++	int recurse_at_this_node = -1;
++	int op_type; 
++	int number_of_elements;
++	int data_index;
++
++	switch (actual_flag) {
++		case SNF_COLLECTION_GET_FIRST:
++			temp_string.assign(Sexp_list_collections[index].data.front());
++			break;
++
++		case SNF_COLLECTION_GET_LAST:
++			temp_string.assign(Sexp_list_collections[index].data.back());
++			break;
++
++		case SNF_COLLECTION_REMOVE_FIRST:
++			temp_string.assign(Sexp_list_collections[index].data.front());
++			Sexp_list_collections[index].data.pop_front();
++			break;
++
++		case SNF_COLLECTION_REMOVE_LAST:
++			temp_string.assign(Sexp_list_collections[index].data.back());
++			Sexp_list_collections[index].data.pop_back();
++			break;
++
++		case SNF_COLLECTION_GET_RANDOM:
++			number_of_elements = (int)Sexp_list_collections[index].data.size();
++			data_index = rand_internal(0, number_of_elements); 
++			temp_string.assign(Sexp_list_collections[index].data.at(data_index));
++			break;
++
++		case SNF_COLLECTION_ITERATE_FORWARDS:
++			// get the parent node
++			parent = find_parent_operator(n); 
++			if (parent == -1) {
++				return ""; 
++			}
++			parent_node = parent; 
++			
++			// we need to find the point we're going to recurse from
++			while (true) {
++				op_type = Operators[get_operator_index(parent)].type; 
++
++				// Action operators are suitable
++				if (op_type & SEXP_ACTION_OPERATOR) {
++					recurse_at_this_node = parent; 
++					break;
++				}
++				
++				// Conditional operators are also suitable
++				if (op_type & SEXP_CONDITIONAL_OPERATOR) {
++					recurse_at_this_node = parent; 
++					break;
++				}
++
++				// anything else, back up further
++				parent = find_parent_operator(parent); 
++				if (parent == -1) {
++					return ""; 
++				}
++			}
++			
++			// does the parent node know we are iterating already?
++			if(Sexp_nodes[recurse_at_this_node].iteration == -1) {
++				Sexp_nodes[recurse_at_this_node].iteration = (int)Sexp_list_collections[index].data.size(); 
++			}
++
++			if (Sexp_nodes[n].iteration < (int)Sexp_list_collections[index].data.size()) {
++				if (Sexp_nodes[parent_node].safe_to_update_iterations == true) {
++					// since we're entering the eval code, it is no longer safe to update the number of iterations
++					Sexp_nodes[parent_node].safe_to_update_iterations = false;
++					Sexp_nodes[n].iteration++ ;  // we start at -1 so this needs to go up BEFORE we use it as an index!
++				}
++				temp_string.assign(Sexp_list_collections[index].data[Sexp_nodes[n].iteration]);
++			}
++			// Well, this was clumsy mission design! Someone has used two or more lists in the same SEXP and a later one is shorter than the other(s)!
++			else {
++				// just return the last entry and hope it's valid
++				temp_string.assign(Sexp_list_collections[index].data.back());
++				Warning(LOCATION, "Error - SEXP List %s does not contain %d members but has been asked to provide that number of entries", Sexp_list_collections[index].list_name.c_str(), Sexp_nodes[recurse_at_this_node].iteration); 
++				log_printf(LOGFILE_EVENT_LOG, "Error - SEXP List %s does not contain %d members but has been asked to provide that number of entries", Sexp_list_collections[index].list_name.c_str(), Sexp_nodes[recurse_at_this_node].iteration); 
++			}
++
++			// final iteration for this collection
++			if (Sexp_nodes[n].iteration + 1 == (int)Sexp_list_collections[index].data.size()) {
++				Sexp_nodes[recurse_at_this_node].flags |= SNF_COLLECTION_FINAL_ITERATION;
++			}
++
++			break;
++
++		default:
++			return "";
++	}
++	
++	Temp_CTEXT_strings.push_back(temp_string);
++	return const_cast<char*>(Temp_CTEXT_strings.back().c_str());
+ }
+ 
++bool deal_with_collection(int node, int collection_index, int collection_type) 
++{
++	if (collection_type & SEXP_FLAG_MAP_COLLECTION) {
++		
++		if (Sexp_map_collections[collection_index].data.empty()) {
++			return false;
++		}
+ 
+-/**
++		SCP_string temp_string; 
++
++		SCP_hash_map<SCP_string, SCP_string>::iterator value = Sexp_map_collections[collection_index].data.find(CTEXT(node));
++
++		// not found
++		if (value == Sexp_map_collections[collection_index].data.end()) {
++			// probably should write to the event.log that the element wasn't found here. 
++			return false;
++		}
++
++		Temp_CTEXT_strings.push_back(value->second);
++		return true;
++	}
++
++	else if (collection_type & SEXP_FLAG_LIST_COLLECTION) {
++		// TODO - Actual code goes here
++		return false;
++	}
++
++	return false;
++}
++/*
++char* deal_with_collection(int n) 
++{
++	if  (Sexp_nodes[n].type & SEXP_FLAG_LIST_COLLECTION) {
++		return deal_with_list_collection(n); 
++	}
++	else if (Sexp_nodes[n].type & SEXP_FLAG_MAP_COLLECTION) {
++		return deal_with_map_collection(n); 
++	}
++
++	Warning(LOCATION, "deal_with_collection() called for an invalid containter type");
++	return "";
++}
++*/
+
+#define SNF_CONTAINER_GET_FIRST				0
+#define SNF_CONTAINER_GET_LAST				1
+#define SNF_CONTAINER_REMOVE_FIRST			2
+#define SNF_CONTAINER_REMOVE_LAST			3
+#define SNF_CONTAINER_GET_RANDOM			4
+#define SNF_CONTAINER_REMOVE_RANDOM			5
+
+typedef struct container_modifier {
+	char *name;
+	int def;
+} container_modifier;
+
+container_modifier Container_modifiers[] = {
+	{ "Get_First",			SNF_CONTAINER_GET_FIRST,		},
+	{ "Get_Last",			SNF_CONTAINER_GET_LAST,			},
+	{ "Remove_First",		SNF_CONTAINER_REMOVE_FIRST,		},
+	{ "Remove_Last",		SNF_CONTAINER_REMOVE_LAST,		},
+	{ "Get_Random",			SNF_CONTAINER_GET_RANDOM,		},
+	{ "Remove_Random",		SNF_CONTAINER_REMOVE_RANDOM,	},
+};
+
+#define NUM_CONTAINER_MODIFIERS					6
+
+bool deal_with_collection_sub(int node, int collection_index, SCP_string &result) 
+{ 	
+	if (Sexp_collections[collection_index].type & SEXP_COLLECTION_MAP) {
+		SCP_hash_map<SCP_string, SCP_string>::iterator value = Sexp_collections[collection_index].map_data.find(CTEXT(node));
+
+		// not found
+		if (value == Sexp_collections[collection_index].map_data.end()) {
+			// probably should write to the event.log that the element wasn't found here but this might not actually be an error. 
+			return false;
+ 		}	
+
+		result.assign(value->second);
+		return true; 
+	}
+	else if (Sexp_collections[collection_index].type & SEXP_COLLECTION_LIST) {
+
+		// if the collection is empty, we might as well quit now
+		if (Sexp_collections[collection_index].list_data.empty()) {
+			return false;
+		}
+
+		char *modifier = CTEXT(node); 
+
+		int modifier_index;
+		bool found = false; 
+		for (modifier_index = 0; modifier_index < NUM_CONTAINER_MODIFIERS; modifier_index++) {
+			if (!stricmp(modifier, Container_modifiers[modifier_index].name)) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			Warning(LOCATION, "Illegal operation attempted on %s container. There is no modifier called %s.", Sexp_collections[collection_index].container_name, CTEXT(node) );	
+			log_printf(LOGFILE_EVENT_LOG, "Illegal operation attempted on %s container. There is no modifier called %s.", Sexp_collections[collection_index].container_name, CTEXT(node) );			
+		}
+
+		int number_of_elements; 
+		int data_index;
+
+		switch (modifier_index) {
+			case SNF_CONTAINER_GET_FIRST:
+				result.assign(Sexp_collections[collection_index].list_data.front());
+				return true;
+	
+			case SNF_CONTAINER_GET_LAST:
+				result.assign(Sexp_collections[collection_index].list_data.back());
+				return true;
+	
+			case SNF_CONTAINER_REMOVE_FIRST:
+				result.assign(Sexp_collections[collection_index].list_data.front());
+				Sexp_collections[collection_index].list_data.pop_front();
+				return true;
+	
+			case SNF_CONTAINER_REMOVE_LAST:
+				result.assign(Sexp_collections[collection_index].list_data.back());
+				Sexp_collections[collection_index].list_data.pop_back();
+				return true;
+	
+			case SNF_CONTAINER_GET_RANDOM:
+				number_of_elements = (int)Sexp_collections[collection_index].list_data.size();
+				data_index = rand_internal(0, number_of_elements); 
+				result.assign(Sexp_collections[collection_index].list_data.at(data_index));
+				return true;	
+		}
+	}
+
+	return false;
+}
+
+char* deal_with_collection(int node, int collection_index)  
+{
+	bool success = true;
+	int sanity = 0; 
+	SCP_string result;
+
+	Assertion (((collection_index > -1) && (collection_index < (int)Sexp_collections.size())), "deal_with_collection() called for index %d when there are only %d collections", collection_index, Sexp_collections.size());
+
+	do {
+		sanity++;
+		success = deal_with_collection_sub(node, collection_index, result);
+
+		// if this isn't an array or is empty we exit
+		if (!success) {
+			return "";
+		}
+
+		if ( result.at(0) != SEXP_COLLECTION_CHAR ) {
+			Temp_collection_strings.push_back(result);
+			return const_cast<char*>(Temp_collection_strings.back().c_str());
+			//return const_cast<char*>(Temp_collection_string.c_str());
+		}
+
+		// we're dealing with a multidimentional array
+		node = CDR(node);
+
+		collection_index = get_index_sexp_collection_name(result.substr(1, (result.length() - 2)).c_str());
+
+		// if it's still nonsense, warn then bail
+		if ( collection_index == -1 ) {
+			Warning(LOCATION, "There is no collection called %s in this mission.", result.c_str());
+			return "";
+		}
+
+	} while (sanity++ < 20);
+
+	return "";
+}
 
 /**
  * Wrapper around Sexp_node[xx].text for normal and variable
@@ -28331,6 +28836,22 @@ char *CTEXT(int n)
 
 		return Sexp_variables[sexp_variable_index].text;
 	}
+	// Karajorma - check we're not dealing with a collection
+	else if (Sexp_nodes[n].type & SEXP_FLAG_COLLECTION) {
+		Assertion((Sexp_nodes[n].type & SEXP_FLAG_COLLECTION), "deal_with_collection() called for an unknown type of collection"); 
+ 
+		int collection_index = get_index_sexp_collection_name(Sexp_nodes[n].text);
+
+		if (collection_index < 0)  {
+			Warning(LOCATION, "Deal_with_collection called for %s, a collection which does not exist!", Sexp_nodes[n].text); 
+			log_printf(LOGFILE_EVENT_LOG, "Deal_with_collection called for %s, a collection which does not exist!", Sexp_nodes[n].text); 
+			return "";
+		}
+
+		n = CAR(n);
+
+		return deal_with_collection(n, collection_index);
+	}
 	else
 	{
 		return Sexp_nodes[n].text;
@@ -28348,6 +28869,16 @@ void init_sexp_vars()
 		Block_variables[i].type = SEXP_VARIABLE_NOT_USED;
 	}
 }
+
+/**
+ * Clear the SEXP Collectors vector
+ */
+void init_sexp_collections()
+{
+	Sexp_collections.clear();
+}
+
+
 
 /**
  * Add a variable to the block variable array rather than the Sexp_variables array
@@ -29019,6 +29550,21 @@ int sexp_var_compare(const void *var1, const void *var2)
 void sexp_variable_sort()
 {
 	insertion_sort( (void *)Sexp_variables, (size_t)(MAX_SEXP_VARIABLES), sizeof(sexp_variable), sexp_var_compare );
+}
+
+/**
+ * Return index of a map type sexp_collection by its name, -1 if not found
+ */
+int get_index_sexp_collection_name(const char *text)
+{
+	for (int i = 0; i < (int)Sexp_collections.size() ; i++) {
+		if ( !stricmp(Sexp_collections[i].container_name.c_str(), text) ) {
+			return i;
+		}
+	}
+
+	// not found
+	return -1;
 }
 
 /**
