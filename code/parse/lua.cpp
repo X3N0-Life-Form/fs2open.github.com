@@ -10032,7 +10032,7 @@ ADE_FUNC(doManeuver, l_Ship, "number Duration, number Heading, number Pitch, num
 	}
 
 	if(f_rot) {
-		aip->ai_override_flags = AIORF_FULL;
+		aip->ai_override_flags |= AIORF_FULL;
 		cip->heading = arr[0];
 		cip->pitch = arr[1];
 		cip->bank = arr[2];
@@ -10051,10 +10051,10 @@ ADE_FUNC(doManeuver, l_Ship, "number Duration, number Heading, number Pitch, num
 		} 
 	}
 	if(f_move) {
-		aip->ai_override_flags = AIORF_FULL_LAT;
+		aip->ai_override_flags |= AIORF_FULL_LAT;
 		cip->vertical = arr[3];
 		cip->sideways = arr[4];
-		cip->forward = arr[5];
+		cip->forward = arr[5];	
 	} else {
 		if (arr[3] != 0) {
 			cip->vertical = arr[3];
@@ -14513,7 +14513,7 @@ ADE_FUNC(__len, l_Mission_Events, NULL, "Number of events in mission", "number",
 //****SUBLIBRARY: Mission/SEXPVariables
 ade_lib l_Mission_SEXPVariables("SEXPVariables", &l_Mission, NULL, "SEXP Variables");
 
-ADE_INDEXER(l_Mission_SEXPVariables, "number Index/string Name", "Array of SEXP variables. Note that you can set a sexp variable using the array, eg \'SEXPVariables[1] = \"newvalue\"\'", "sexpvariable", "Handle to SEXP variable, or invalid sexpvariable handle if index was invalid")
+ADE_INDEXER(l_Mission_SEXPVariables, "number Index/string Name", "Array of SEXP variables. Note that you can set a sexp variable using the array, eg \'SEXPVariables[\"newvariable\"] = \"newvalue\"\'", "sexpvariable", "Handle to SEXP variable, or invalid sexpvariable handle if index was invalid")
 {
 	char *name = NULL;
 	char *newval = NULL;
@@ -16427,11 +16427,7 @@ static int ade_index_handler(lua_State *L)
 				//Execute function
 				lua_pcall(L, numargs, LUA_MULTRET, err_ldx);
 
-				//WMC - Return as appropriate
-				int rval = lua_gettop(L) - vvt_ldx;
-
-				if(rval)
-					return rval;
+				return (lua_gettop(L) - vvt_ldx);
 			}
 			else
 			{
@@ -16461,10 +16457,7 @@ static int ade_index_handler(lua_State *L)
 			//Execute function
 			lua_pcall(L, last_arg_ldx, LUA_MULTRET, err_ldx);
 
-			int rval = lua_gettop(L) - err_ldx;
-
-			if(rval)
-				return rval;
+			return (lua_gettop(L) - err_ldx);
 		}
 		lua_pop(L, 2);	//WMC - Don't need __indexer or error handler
 	}
