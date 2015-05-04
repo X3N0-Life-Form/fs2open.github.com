@@ -1296,6 +1296,9 @@ public:
 	bool draw_secondary_models[MAX_SHIP_SECONDARY_BANKS];
 	float weapon_model_draw_distance;
 
+	// Recoil modifier for the ship
+	float ship_recoil_modifier;
+
 	float	max_hull_strength;				// Max hull strength of this class of ship.
 	float	max_shield_strength;
 	float	auto_shield_spread;
@@ -1380,6 +1383,9 @@ public:
 
 	int splodeing_texture;
 	char splodeing_texture_name[MAX_FILENAME_LEN];
+
+	// Goober5000
+	SCP_vector<texture_replace> replacement_textures;
 
 	
 	int armor_type_idx;

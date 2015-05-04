@@ -2,7 +2,7 @@ dnl configure.ac for fs2_open
 dnl
 dnl $Id: configure.ac,v 1.31.2.4 2007-05-28 19:36:12 taylor Exp $
 
-AC_INIT(fs2_open, 3.7.1)
+AC_INIT(fs2_open, 3.7.3)
 AC_CONFIG_SRCDIR(code/freespace2/freespace.cpp)
 
 dnl we need at least version 2.54 of autoconf
@@ -39,6 +39,8 @@ AC_SUBST(LDFLAGS)
 
 PKG_PROG_PKG_CONFIG()
 
+dnl lets see if we support c++11
+AX_CXX_COMPILE_STDCXX_11([noext], [optional])
 
 dnl The configuration options
 dnl -------------------------
@@ -150,8 +152,8 @@ case "$target" in
 		LDFLAGS="$LDFLAGS -L/opt/csw/lib"
 		CPPFLAGS="$CPPFLAGS -I/opt/csw/include"
 		;;
-	*freebsd*)
-		# FreeBSD 9.1
+	*freebsd* | *openbsd*)
+		# FreeBSD 10.1
 		echo "Using Unix defines (for $host_os $host_cpu)"
 		echo "************************************************************"
 		echo "************************ NOTE ******************************"
@@ -163,7 +165,7 @@ case "$target" in
 		fs2_os_bsd="yes"
 		if test "$host_cpu" = "amd64"
 		then
-			D_CFLAGS="$D_CFLAGS -m64 -march=athlon64 -ansi"
+			D_CFLAGS="$D_CFLAGS -m64 -march=athlon64"
 		fi
 		D_CFLAGS="$D_CFLAGS -DLUA_USE_LINUX"
 		LDFLAGS="$LDFLAGS -L/usr/local/lib"
@@ -175,7 +177,8 @@ case "$target" in
 		echo "check the configure.ac file"
 		echo "host_cpu:    " $host_cpu
 		echo "host_vendor: " $host_vendor
-		echo "host_os      " $host_os
+		echo "host_os:     " $host_os
+		echo "target:      " $target
 		echo "************************************************************"
 		echo "* Please let us know about successful builds on this OS at *"
 		echo "* http://www.hard-light.net/forums/index.php?board=113.0 ***"

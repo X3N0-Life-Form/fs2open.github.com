@@ -975,21 +975,7 @@ void player_select_process_noninput(int k)
 
 	// delete the currently highlighted pilot
 	case KEY_DELETE:
-		if (Player_select_pilot >= 0) {
-			int ret;
-
-			if (Player_select_mode == PLAYER_SELECT_MODE_MULTI) {
-				popup(PF_TITLE_BIG | PF_USE_AFFIRMATIVE_ICON, 1, POPUP_OK, XSTR("Pilots can only be deleted from the single player menu!", 1611));
-			} else {
-				// display a popup requesting confirmation
-				ret = popup(PF_USE_AFFIRMATIVE_ICON | PF_USE_NEGATIVE_ICON,2,POPUP_NO,POPUP_YES,XSTR( "Are you sure you want to delete this pilot?", 383));										
-
-				// delete the pilot
-				if (ret == 1) {
-					player_select_delete_pilot();
-				}
-			}
-		}
+		player_select_button_pressed(DELETE_BUTTON);
 		break;
 	}
 
@@ -1306,25 +1292,26 @@ int Player_tips_shown = 0;
 // tooltips
 void player_tips_init()
 {
-	int rval;
-
 	Num_player_tips = 0;
+	
+	try
+	{
+		read_file_text("tips.tbl", CF_TYPE_TABLES);
+		reset_parse();
 
-	if ((rval = setjmp(parse_abort)) != 0) {
-		mprintf(("TABLES: Unable to parse '%s'!  Error code = %i.\n", "tips.tbl", rval));
-		return;
-	}
+		while (!optional_string("#end")) {
+			required_string("+Tip:");
 
-	read_file_text("tips.tbl", CF_TYPE_TABLES);
-	reset_parse();
-
-	while(!optional_string("#end")) {
-		required_string("+Tip:");
-
-		if(Num_player_tips >= MAX_PLAYER_TIPS) {
-			break;
+			if (Num_player_tips >= MAX_PLAYER_TIPS) {
+				break;
+			}
+			Player_tips[Num_player_tips++] = stuff_and_malloc_string(F_NAME, NULL);
 		}
-		Player_tips[Num_player_tips++] = stuff_and_malloc_string(F_NAME, NULL);
+	}
+	catch (const parse::ParseException& e)
+	{
+		mprintf(("TABLES: Unable to parse '%s'!  Error message = %s.\n", "tips.tbl", e.what()));
+		return;
 	}
 }
 
