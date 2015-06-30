@@ -404,6 +404,7 @@ char **Scan_code_text = Scan_code_text_english;
 char **Joy_button_text = Joy_button_text_english;
 
 SCP_vector<config_item*> Control_config_presets;
+SCP_vector<SCP_string> Control_config_preset_names;
 
 void set_modifier_status()
 {
@@ -474,14 +475,14 @@ int translate_key_to_index(const char *key, bool find_override)
 		// convert scancode to Control_config index
 		if (find_override) {
 			for (i=0; i<CCFG_MAX; i++) {
-				if (Control_config[i].key_id == index) {
+				if (!Control_config[i].disabled && Control_config[i].key_id == index) {
 					index = i;
 					break;
 				}
 			}
 		} else {
 			for (i=0; i<CCFG_MAX; i++) {
-				if (Control_config[i].key_default == index) {
+				if (!Control_config[i].disabled && Control_config[i].key_default == index) {
 					index = i;
 					break;
 				}
@@ -811,6 +812,14 @@ void control_config_common_load_overrides()
 		std::copy(Control_config, Control_config + CCFG_MAX + 1, cfg_preset);
 		Control_config_presets.push_back(cfg_preset);
 
+		SCP_string preset_name;
+		if (optional_string("$Name:")) {
+			stuff_string_line(preset_name);
+		} else {
+			preset_name = "<unnamed preset>";
+		}
+		Control_config_preset_names.push_back(preset_name);
+
 		while (required_string_either("#End","$Bind Name:")) {
 			const int iBufferLength = 64;
 			char szTempBuffer[iBufferLength];
@@ -834,8 +843,12 @@ void control_config_common_load_overrides()
 					int iTemp;
 
 					if (optional_string("$Key Default:")) {
-						stuff_string(szTempBuffer, F_NAME, iBufferLength);
-						r_ccConfig.key_default = (short)mKeyNameToVal[szTempBuffer];
+						if (optional_string("NONE")) {
+							r_ccConfig.key_default = (short)-1;
+						} else {
+							stuff_string(szTempBuffer, F_NAME, iBufferLength);
+							r_ccConfig.key_default = (short)mKeyNameToVal[szTempBuffer];
+						}
 					}
 
 					if (optional_string("$Joy Default:")) {
@@ -860,7 +873,7 @@ void control_config_common_load_overrides()
 
 					if (optional_string("$Category:")) {
 						stuff_string(szTempBuffer, F_NAME, iBufferLength);
-						r_ccConfig.tab = (char)mKeyNameToVal[szTempBuffer];
+						r_ccConfig.tab = (char)mCCTabNameToVal[szTempBuffer];
 					}
 
 					if (optional_string("$Has XStr:")) {
@@ -870,7 +883,7 @@ void control_config_common_load_overrides()
 
 					if (optional_string("$Type:")) {
 						stuff_string(szTempBuffer, F_NAME, iBufferLength);
-						r_ccConfig.type = (char)mKeyNameToVal[szTempBuffer];
+						r_ccConfig.type = (char)mCCTypeNameToVal[szTempBuffer];
 					}
 
 					if (optional_string("+Disable")) {

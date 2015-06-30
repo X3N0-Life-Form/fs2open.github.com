@@ -2892,6 +2892,25 @@ ADE_FUNC(isGliding, l_Physics, NULL, "True if glide mode is on, false or nil if 
 		return ade_set_args(L, "b",  false);
 }
 
+ADE_FUNC(applyWhack, l_Physics, "vector Impulse, [ vector Position]", "Applies a whack to an object at a position (a local vector) based on impulse supplied (a world vector). If no position is supplied, an empty vector is used.", "boolean", "true if it succeeded, false otherwise")
+ {
+	object_h objh;
+	physics_info_h *pih;
+	vec3d *impulse;
+	vec3d *offset = &vmd_zero_vector;
+	
+	if (!ade_get_args(L, "oo|o", l_Physics.GetPtr(&pih), l_Vector.GetPtr(&impulse), l_Vector.GetPtr(&offset)))
+		return ADE_RETURN_NIL;
+	
+	objh = pih->objh;
+	
+	physics_apply_whack(impulse, offset, pih->pi, &objh.objp->orient, pih->pi->mass);
+	
+	return ADE_RETURN_TRUE;
+	
+}
+
+
 //**********HANDLE: sexpvariable
 struct sexpvar_h
 {
@@ -3122,16 +3141,16 @@ ADE_INDEXER(l_Shields, "enumeration/number", "Gets or sets shield segment streng
 				qdx = -1;
 				break;
 			case LE_SHIELD_FRONT:
-				qdx = 0;
+				qdx = FRONT_QUAD;
 				break;
 			case LE_SHIELD_LEFT:
-				qdx = 1;
+				qdx = LEFT_QUAD;
 				break;
 			case LE_SHIELD_RIGHT:
-				qdx = 2;
+				qdx = RIGHT_QUAD;
 				break;
 			case LE_SHIELD_BACK:
-				qdx = 3;
+				qdx = REAR_QUAD;
 				break;
 			default:
 				return ade_set_error(L, "f", 0.0f);
@@ -6020,7 +6039,7 @@ ADE_FUNC(isInTechroom, l_Shipclass, NULL, "Gets whether or not the ship class is
 	return ade_set_args(L, "b", b);
 }
 
-ADE_FUNC(renderTechModel, l_Shipclass, "X1, Y1, X2, Y2, [Rotation %, Pitch %, Bank %, Zoom multiplier]", "Draws ship model as if in techroom", "boolean", "Whether ship was rendered")
+ADE_FUNC(renderTechModel, l_Shipclass, "X1, Y1, X2, Y2, [Rotation %=0, Pitch %=0, Bank %=40, number Zoom=1.3]", "Draws ship model as if in techroom", "boolean", "Whether ship was rendered")
 {
 	int x1,y1,x2,y2;
 	angles rot_angles = {0.0f, 0.0f, 40.0f};
@@ -6040,9 +6059,10 @@ ADE_FUNC(renderTechModel, l_Shipclass, "X1, Y1, X2, Y2, [Rotation %, Pitch %, Ba
     CLAMP(rot_angles.h, 0.0f, 100.0f);
 
 	ship_info *sip = &Ship_info[idx];
+	model_render_params render_info;
 
 	if (sip->uses_team_colors) {
-		gr_set_team_color(sip->default_team_name, "none", 0, 0);
+		render_info.set_team_color(sip->default_team_name, "none", 0, 0);
 	}
 
 	//Make sure model is loaded
@@ -6080,14 +6100,16 @@ ADE_FUNC(renderTechModel, l_Shipclass, "X1, Y1, X2, Y2, [Rotation %, Pitch %, Ba
 
 	//Draw the ship!!
 	model_clear_instance(sip->model_num);
-	model_set_detail_level(0);
+	render_info.set_detail_level_lock(0);
 
-	uint render_flags = MR_LOCK_DETAIL | MR_AUTOCENTER | MR_NO_FOGGING;
+	uint render_flags = MR_AUTOCENTER | MR_NO_FOGGING;
 
 	if(sip->flags2 & SIF2_NO_LIGHTING)
 		render_flags |= MR_NO_LIGHTING;
 
-	model_render(sip->model_num, &orient, &vmd_zero_vector, render_flags);
+	render_info.set_flags(render_flags);
+
+	model_render_immediate(&render_info, sip->model_num, &orient, &vmd_zero_vector);
 
 	//OK we're done
 	gr_end_view_matrix();
@@ -6096,13 +6118,12 @@ ADE_FUNC(renderTechModel, l_Shipclass, "X1, Y1, X2, Y2, [Rotation %, Pitch %, Ba
 	//Bye!!
 	g3_end_frame();
 	gr_reset_clip();
-	gr_disable_team_color();
 
 	return ade_set_args(L, "b", true);
 }
 
 // Nuke's alternate tech model rendering function
-ADE_FUNC(renderTechModel2, l_Shipclass, "X1, Y1, X2, Y2, orientation Orientation=null, [Zoom multiplier]", "Draws ship model as if in techroom", "boolean", "Whether ship was rendered")
+ADE_FUNC(renderTechModel2, l_Shipclass, "X1, Y1, X2, Y2, [orientation Orientation=nil, number Zoom=1.3]", "Draws ship model as if in techroom", "boolean", "Whether ship was rendered")
 {
 	int x1,y1,x2,y2;
 	int idx;
@@ -6118,9 +6139,10 @@ ADE_FUNC(renderTechModel2, l_Shipclass, "X1, Y1, X2, Y2, orientation Orientation
 		return ade_set_args(L, "b", false);
 
 	ship_info *sip = &Ship_info[idx];
+	model_render_params render_info;
 
 	if (sip->uses_team_colors) {
-		gr_set_team_color(sip->default_team_name, "none", 0, 0);
+		render_info.set_team_color(sip->default_team_name, "none", 0, 0);
 	}
 
 	//Make sure model is loaded
@@ -6151,14 +6173,16 @@ ADE_FUNC(renderTechModel2, l_Shipclass, "X1, Y1, X2, Y2, orientation Orientation
 
 	//Draw the ship!!
 	model_clear_instance(sip->model_num);
-	model_set_detail_level(0);
+	render_info.set_detail_level_lock(0);
 
-	uint render_flags = MR_LOCK_DETAIL | MR_AUTOCENTER | MR_NO_FOGGING;
+	uint render_flags = MR_AUTOCENTER | MR_NO_FOGGING;
 
 	if(sip->flags2 & SIF2_NO_LIGHTING)
 		render_flags |= MR_NO_LIGHTING;
 
-	model_render(sip->model_num, orient, &vmd_zero_vector, render_flags);
+	render_info.set_flags(render_flags);
+
+	model_render_immediate(&render_info, sip->model_num, orient, &vmd_zero_vector);
 
 	//OK we're done
 	gr_end_view_matrix();
@@ -6167,7 +6191,6 @@ ADE_FUNC(renderTechModel2, l_Shipclass, "X1, Y1, X2, Y2, orientation Orientation
 	//Bye!!
 	g3_end_frame();
 	gr_reset_clip();
-	gr_disable_team_color();
 
 	return ade_set_args(L, "b", true);
 }
@@ -12059,7 +12082,7 @@ ADE_FUNC(playMusic, l_Audio, "string Filename, [float volume = 1.0, bool looping
 	char *s;
 	float volume = 1.0f;
 	bool loop = true;
-	if(!ade_get_args(L, "s|fb", &s, &volume))
+	if (!ade_get_args(L, "s|fb", &s, &volume, &loop))
 		return ade_set_error(L, "i", -1);
 
 	int ah = audiostream_open(s, ASF_MENUMUSIC);
@@ -12097,6 +12120,32 @@ ADE_FUNC(stopMusic, l_Audio, "int audiohandle, [bool fade = false], [string 'bri
 		} else {
 			LuaError(L, "Invalid music type (%s) passed to stopMusic", music_type);
 		}
+	}
+
+	return ADE_RETURN_NIL;
+}
+
+ADE_FUNC(pauseMusic, l_Audio, "int audiohandle, bool pause", "Pauses or unpauses a playing music file, provided audiohandle is valid. The boolean argument should be true to pause and false to unpause. If the audiohandle is -1, *all* audio streams are paused or unpaused.", NULL, NULL)
+{
+	int ah;
+	bool pause;
+
+	if(!ade_get_args(L, "ib", &ah, &pause))
+		return ADE_RETURN_NIL;
+
+	if (ah >= 0 && ah < MAX_AUDIO_STREAMS)
+	{
+		if (pause)
+			audiostream_pause(ah, true);
+		else
+			audiostream_unpause(ah, true);
+	}
+	else if (ah == -1)
+	{
+		if (pause)
+			audiostream_pause_all(true);
+		else
+			audiostream_unpause_all(true);
 	}
 
 	return ADE_RETURN_NIL;
@@ -12760,7 +12809,7 @@ ADE_VIRTVAR(HUDDisabledExceptMessages, l_HUD, "boolean", "Specifies if only the 
 		return ADE_RETURN_FALSE;
 }
 
-ADE_FUNC(setHUDGaugeColor, l_HUD, "number (index number of the gauge), [number red, number green, number blue, number alpha]", "Color used to draw the gauge", "boolean", "If the operation was successful")
+ADE_FUNC(setHUDGaugeColor, l_HUD, "number (index number of the gauge), [integer red, number green, number blue, number alpha]", "Color used to draw the gauge", "boolean", "If the operation was successful")
 {
 	int idx = -1; 
 	int r = 0;
@@ -12922,7 +12971,7 @@ ADE_FUNC(__len, l_Graphics_Posteffects, NULL, "Gets the number or available post
 	return ade_set_args(L, "i", ((int) names.size()) + 1);
 }
 
-ADE_FUNC(setPostEffect, l_Graphics, "string name[, number value=0]", "Sets the intensity of the specified post processing effect", "boolean", "true when successful, false otherwise")
+ADE_FUNC(setPostEffect, l_Graphics, "string name, [number value=0]", "Sets the intensity of the specified post processing effect", "boolean", "true when successful, false otherwise")
 {
 	char* name = NULL;
 	int intensity = 0;
@@ -12999,7 +13048,7 @@ ADE_VIRTVAR(CurrentRenderTarget, l_Graphics, "texture", "Current rendering targe
 	}
 }
 
-ADE_FUNC(clearScreen, l_Graphics, "[number Red, number green, number blue, number alpha]", "Clears the screen to black, or the color specified.", NULL, NULL)
+ADE_FUNC(clearScreen, l_Graphics, "[integer red, number green, number blue, number alpha]", "Clears the screen to black, or the color specified.", NULL, NULL)
 {
 	int r,g,b,a;
 	r=g=b=0;
@@ -13068,6 +13117,38 @@ ADE_FUNC(getScreenHeight, l_Graphics, NULL, "Gets screen height", "number", "Hei
 		return ade_set_error(L, "i", 0);
 
 	return ade_set_args(L, "i", gr_screen.max_h);
+}
+
+ADE_FUNC(getCenterWidth, l_Graphics, NULL, "Gets width of center monitor (should be used in conjuction with getCenterOffsetX)", "number", "Width of center monitor in pixels, or 0 if graphics are not initialized yet")
+{
+	if(!Gr_inited)
+		return ade_set_error(L, "i", 0);
+
+	return ade_set_args(L, "i", gr_screen.center_w);
+}
+
+ADE_FUNC(getCenterHeight, l_Graphics, NULL, "Gets height of center monitor (should be used in conjuction with getCenterOffsetY)", "number", "Height of center monitor in pixels, or 0 if graphics are not initialized yet")
+{
+	if(!Gr_inited)
+		return ade_set_error(L, "i", 0);
+
+	return ade_set_args(L, "i", gr_screen.center_h);
+}
+
+ADE_FUNC(getCenterOffsetX, l_Graphics, NULL, "Gets X offset of center monitor", "number", "X offset of center monitor in pixels")
+{
+	if(!Gr_inited)
+		return ade_set_error(L, "i", 0);
+
+	return ade_set_args(L, "i", gr_screen.center_offset_x);
+}
+
+ADE_FUNC(getCenterOffsetY, l_Graphics, NULL, "Gets Y offset of center monitor", "number", "Y offset of center monitor in pixels")
+{
+	if(!Gr_inited)
+		return ade_set_error(L, "i", 0);
+
+	return ade_set_args(L, "i", gr_screen.center_offset_y);
 }
 
 ADE_FUNC(getCurrentCamera, l_Graphics, "[boolean]", "Gets the current camera handle, if argument is <i>true</i> then it will also return the main camera when no custom camera is in use", "camera", "camera handle or invalid handle on error")
@@ -13181,7 +13262,7 @@ ADE_FUNC(setCamera, l_Graphics, "[camera handle Camera]", "Sets current camera, 
 	return ADE_RETURN_TRUE;
 }
 
-ADE_FUNC(setColor, l_Graphics, "number Red, number Green, number Blue, [number Alpha]", "Sets 2D drawing color; each color number should be from 0 (darkest) to 255 (brightest)", NULL, NULL)
+ADE_FUNC(setColor, l_Graphics, "integer Red, number Green, number Blue, [integer Alpha]", "Sets 2D drawing color; each color number should be from 0 (darkest) to 255 (brightest)", NULL, NULL)
 {
 	if(!Gr_inited)
 		return ADE_RETURN_NIL;
@@ -13318,7 +13399,7 @@ ADE_FUNC(drawPixel, l_Graphics, "number X, number Y", "Sets pixel to CurrentColo
 	return ADE_RETURN_NIL;
 }
 
-ADE_FUNC(drawPolygon, l_Graphics, "texture Texture, [vector Position={0,0,0}, orientation Orientation=null, number Width=1.0, number Height=1.0]", "Draws a polygon. May not work properly in hooks other than On Object Render.", NULL, NULL)
+ADE_FUNC(drawPolygon, l_Graphics, "texture Texture, [vector Position={0,0,0}, orientation Orientation=nil, number Width=1.0, number Height=1.0]", "Draws a polygon. May not work properly in hooks other than On Object Render.", NULL, NULL)
 {
 	int tdx = -1;
 	vec3d pos = vmd_zero_vector;
@@ -13471,7 +13552,11 @@ ADE_FUNC(drawModel, l_Graphics, "model, position, orientation", "Draws the given
 	//Draw the ship!!
 	model_clear_instance(model_num);
 	model_set_detail_level(0);
-	model_render(model_num, orient, v, MR_NORMAL);
+	model_render_params render_info;
+
+	render_info.set_detail_level_lock(0);
+
+	model_render_immediate(&render_info, model_num, orient, v);
 
 	//OK we're done
 	gr_end_view_matrix();
@@ -13485,7 +13570,7 @@ ADE_FUNC(drawModel, l_Graphics, "model, position, orientation", "Draws the given
 }
 
 // Wanderer
-ADE_FUNC(drawModelOOR, l_Graphics, "model Model, vector Position, matrix Orientation, integer Flags", "Draws the given model with the specified position and orientation - Use with extreme care, designed to operate properly only in On Object Render hooks.", "int", "Zero if successful, otherwise an integer error code")
+ADE_FUNC(drawModelOOR, l_Graphics, "model Model, vector Position, matrix Orientation, [integer Flags]", "Draws the given model with the specified position and orientation - Use with extreme care, designed to operate properly only in On Object Render hooks.", "int", "Zero if successful, otherwise an integer error code")
 {
 	model_h *mdl = NULL;
 	vec3d *v = &vmd_zero_vector;
@@ -13512,7 +13597,11 @@ ADE_FUNC(drawModelOOR, l_Graphics, "model Model, vector Position, matrix Orienta
 
 	//Draw the ship!!
 	model_clear_instance(model_num);
-	model_render(model_num, orient, v, flags);
+
+	model_render_params render_info;
+	render_info.set_flags(flags);
+
+	model_render_immediate(&render_info, model_num, orient, v);
 
 	return ade_set_args(L, "i", 0);
 }
@@ -13607,7 +13696,7 @@ ADE_FUNC(drawTargetingBrackets, l_Graphics, "object Object, [boolean draw=true, 
 	y1 -= padding;
 	y2 += padding;
 	if ( draw_box ) {
-		draw_brackets_square(x1, y1, x2, y2, false);
+		draw_brackets_square(x1, y1, x2, y2, GR_RESIZE_NONE);
 	}
 
 	if ( entered_frame )
@@ -13616,7 +13705,7 @@ ADE_FUNC(drawTargetingBrackets, l_Graphics, "object Object, [boolean draw=true, 
 	return ade_set_args(L, "iiii", x1, y1, x2, y2);
 }
 
-ADE_FUNC(drawSubsystemTargetingBrackets, l_Graphics, "subsystem subsys, [boolean draw=true, [boolean setColor=false]]",
+ADE_FUNC(drawSubsystemTargetingBrackets, l_Graphics, "subsystem subsys, [boolean draw=true, boolean setColor=false]",
 	"Gets the edge position of the targeting brackets drawn for a subsystem as if they were drawn on the HUD. Only actually draws the brackets if <i>draw</i> is true, optionally sets the color the as if it was drawn on the HUD",
 	"number,number,number,number",
 	"Left, top, right, and bottom positions of the brackets, or nil if invalid or off-screen")

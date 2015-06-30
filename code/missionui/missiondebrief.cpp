@@ -493,7 +493,7 @@ const char *debrief_tooltip_handler(const char *str)
 
 	} else if (!stricmp(str, NOX("@Badge"))) {
 		if (Badge_bitmap >= 0){
-			return Medals[Player->stats.m_badge_earned].name;
+			return Medals[Player->stats.m_badge_earned.back()].name;
 		}
 	}
 
@@ -1021,25 +1021,25 @@ void debrief_award_init()
 
 	// handle badge earned
 	// only grant badge if earned and allowed.  (no_promotion really means no promotion and no badges)
-	if ( Player->stats.m_badge_earned != -1 ) {
-		debrief_choose_medal_variant(buf, Player->stats.m_badge_earned, Player->stats.medal_counts[Player->stats.m_badge_earned] - 1);
+	if ( Player->stats.m_badge_earned.size() ) {
+		debrief_choose_medal_variant(buf, Player->stats.m_badge_earned.back(), Player->stats.medal_counts[Player->stats.m_badge_earned.back()] - 1);
 		Badge_bitmap = bm_load(buf);
 
 		// see if we have a persona
 		int persona_index = debrief_find_persona_index();
 
 		// use persona-specific badge text if it exists; otherwise, use default
-		if (Medals[Player->stats.m_badge_earned].promotion_text.find(persona_index) != Medals[Player->stats.m_badge_earned].promotion_text.end()) {
-			Badge_stage.text = Medals[Player->stats.m_badge_earned].promotion_text[persona_index];
+		if (Medals[Player->stats.m_badge_earned.back()].promotion_text.find(persona_index) != Medals[Player->stats.m_badge_earned.back()].promotion_text.end()) {
+			Badge_stage.text = Medals[Player->stats.m_badge_earned.back()].promotion_text[persona_index];
 		} else {
-			Badge_stage.text = Medals[Player->stats.m_badge_earned].promotion_text[-1];
+			Badge_stage.text = Medals[Player->stats.m_badge_earned.back()].promotion_text[-1];
 		}
 		Badge_stage.recommendation_text = "";
 
 		// choose appropriate badge voice for this mission
-		debrief_choose_voice(Badge_stage.voice, Medals[Player->stats.m_badge_earned].voice_base, persona_index);
+		debrief_choose_voice(Badge_stage.voice, Medals[Player->stats.m_badge_earned.back()].voice_base, persona_index);
 
-		debrief_add_award_text(Medals[Player->stats.m_badge_earned].name);
+		debrief_add_award_text(Medals[Player->stats.m_badge_earned.back()].name);
 	}
 
 	if ((Rank_bitmap >= 0) || (Medal_bitmap >= 0) || (Badge_bitmap >= 0)) {
@@ -1058,49 +1058,51 @@ void debrief_traitor_init()
 	if ( !inited ) {
 		debriefing		*debrief;
 		debrief_stage	*stagep;
-		int rval;
 		int stage_num;
+		
+		try
+		{
+			read_file_text("traitor.tbl", CF_TYPE_TABLES);
+			reset_parse();
 
-		if ((rval = setjmp(parse_abort)) != 0) {
-			mprintf(("TABLES: Unable to parse '%s'!  Error code = %i.\n", "traitor.tbl", rval));
+			// simplied form of the debriefing stuff.
+			debrief = &Traitor_debriefing;
+			required_string("#Debriefing_info");
+
+			required_string("$Num stages:");
+			stuff_int(&debrief->num_stages);
+			Assert(debrief->num_stages == 1);
+
+			stage_num = 0;
+			stagep = &debrief->stages[stage_num++];
+			required_string("$Formula:");
+			stagep->formula = get_sexp_main();
+			required_string("$multi text");
+			stuff_string(stagep->text, F_MULTITEXT, NULL);
+			required_string("$Voice:");
+			char traitor_voice_file[MAX_FILENAME_LEN];
+			stuff_string(traitor_voice_file, F_FILESPEC, MAX_FILENAME_LEN);
+
+			// DKA 9/13/99	Only 1 traitor msg for FS2
+			//		if ( Player->main_hall ) {
+			//			strcpy_s(stagep->voice, NOX("3_"));
+			//		} else {
+			//			strcpy_s(stagep->voice, NOX("1_"));
+			//		}
+
+			// Goober5000
+			debrief_choose_voice(stagep->voice, traitor_voice_file, debrief_find_persona_index(), 1);
+
+			required_string("$Recommendation text:");
+			stuff_string(stagep->recommendation_text, F_MULTITEXT, NULL);
+
+			inited = 1;
+		}
+		catch (const parse::ParseException& e)
+		{
+			mprintf(("TABLES: Unable to parse '%s'!  Error message = %s.\n", "traitor.tbl", e.what()));
 			return;
 		}
-
-		read_file_text("traitor.tbl", CF_TYPE_TABLES);
-		reset_parse();		
-
-		// simplied form of the debriefing stuff.
-		debrief = &Traitor_debriefing;
-		required_string("#Debriefing_info");
-
-		required_string("$Num stages:");
-		stuff_int(&debrief->num_stages);
-		Assert(debrief->num_stages == 1);
-
-		stage_num = 0;
-		stagep = &debrief->stages[stage_num++];
-		required_string("$Formula:");
-		stagep->formula = get_sexp_main();
-		required_string("$multi text");
-		stuff_string( stagep->text, F_MULTITEXT, NULL);
-		required_string("$Voice:");
-		char traitor_voice_file[MAX_FILENAME_LEN];
-		stuff_string(traitor_voice_file, F_FILESPEC, MAX_FILENAME_LEN);
-
-// DKA 9/13/99	Only 1 traitor msg for FS2
-//		if ( Player->main_hall ) {
-//			strcpy_s(stagep->voice, NOX("3_"));
-//		} else {
-//			strcpy_s(stagep->voice, NOX("1_"));
-//		}
-
-		// Goober5000
-		debrief_choose_voice(stagep->voice, traitor_voice_file, debrief_find_persona_index(), 1);
-
-		required_string("$Recommendation text:");
-		stuff_string( stagep->recommendation_text, F_MULTITEXT, NULL);
-
-		inited = 1;
 	}
 
 	// disable the accept button if in single player and I am a traitor
@@ -2317,7 +2319,7 @@ void debrief_do_frame(float frametime)
 		gr_set_color_fast(&Color_normal);
 		gr_set_font(FONT2);
 		gr_get_string_size(&str_w, &str_h, please_wait_str);
-		gr_string((gr_screen.max_w - str_w) / 2, (gr_screen.max_h - str_h) / 2, please_wait_str, GR_RESIZE_MENU);
+		gr_string((gr_screen.max_w_unscaled - str_w) / 2, (gr_screen.max_h_unscaled - str_h) / 2, please_wait_str, GR_RESIZE_MENU);
 		gr_set_font(FONT1);
 
 		gr_flip();

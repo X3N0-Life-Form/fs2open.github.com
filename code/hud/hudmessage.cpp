@@ -38,6 +38,7 @@
 #include "network/multi.h"
 #include "anim/packunpack.h" // for talking heads
 #include "anim/animplay.h"
+#include "parse/scripting.h"
 
 
 /* replaced with those static ints that follow
@@ -406,18 +407,18 @@ void HudGaugeMessages::scrollMessages()
 				}
 			}
 		} else {
+			bool at_end = m == (active_messages.end() - 1);
+
+			if (at_end) {
+				// Iterator will be invalid
+				active_messages.pop_back();
+				break;
+			}
+
 			*m = active_messages.back();
 			active_messages.pop_back();
 
-			if (active_messages.empty())
-			{
-				// We may not use the iterator any longer
-				break;
-			}
-			else
-			{
-				continue;
-			}
+			continue;
 		}
 
 		++m;
@@ -606,6 +607,15 @@ void hud_sourced_print(int source, const char *msg)
 	new_msg.x = 0;
 
 	HUD_msg_buffer.push_back(new_msg);
+
+    // Invoke the scripting hook
+    Script_system.SetHookVar("Text", 's', const_cast<char*>(msg));
+    Script_system.SetHookVar("SourceType", 'i', &source);
+
+    Script_system.RunCondition(CHA_HUDMSGRECEIVED);
+
+    Script_system.RemHookVars(2, "Text", "SourceType");
+    
 }
 
 int hud_query_scrollback_size()

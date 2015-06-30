@@ -75,6 +75,10 @@ struct image_desc
 #define CHA_ONACTION		32
 #define CHA_ONACTIONSTOPPED	33
 #define CHA_MSGRECEIVED		34
+#define CHA_HUDMSGRECEIVED	35
+#define CHA_AFTERBURNSTART	36
+#define CHA_AFTERBURNEND    37
+#define CHA_BEAMFIRE        38
 
 // management stuff
 void scripting_state_init();

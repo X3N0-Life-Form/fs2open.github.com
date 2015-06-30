@@ -151,49 +151,6 @@ int Supernova_coords[GR_NUM_RESOLUTIONS][2] = {
 	}
 };
 
-// used to draw the kills gauge
-hud_frames Kills_gauge;
-int Kills_gauge_loaded = 0;
-int Kills_gauge_coords[GR_NUM_RESOLUTIONS][2] = {
-	{ // GR_640
-		497, 361
-	},
-	{ // GR_1024
-		880, 624
-	}
-};
-int Kills_text_coords[GR_NUM_RESOLUTIONS][2] = {
-	{ // GR_640
-		503, 365
-	},
-	{ // GR_1024
-		886, 628
-	}
-};
-
-int Kills_text_val_coords_gr[GR_NUM_RESOLUTIONS][2] = {
-	{ // GR_640
-		615, 365
-	},
-	{ // GR_1024
-		984, 628
-	}
-};
-
-int Kills_text_val_coords[GR_NUM_RESOLUTIONS][2] = {
-	{ // GR_640
-		571, 365
-	},
-	{ // GR_1024
-		954, 628
-	}
-};
-
-char Kills_fname[GR_NUM_RESOLUTIONS][MAX_FILENAME_LEN] = {
-	"kills1",
-	"kills1"
-};
-
 // used to draw the hud support view
 static int Hud_support_view_active;
 static int Hud_support_view_abort;		// active when we need to display abort message
@@ -237,7 +194,6 @@ int hud_subspace_notify_active();
 int hud_objective_notify_active();
 void hud_subspace_notify_abort();
 void hud_maybe_display_subspace_notify();
-void hud_init_kills_gauge();
 int hud_maybe_render_emp_icon();
 void hud_init_emp_icon();
 
@@ -713,7 +669,7 @@ void HudGauge::renderString(int x, int y, const char *str)
 	int nx = 0, ny = 0;
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if ( reticle_follow ) {
 			nx = HUD_nose_x;
@@ -736,7 +692,7 @@ void HudGauge::renderString(int x, int y, int gauge_id, const char *str)
 	int nx = 0, ny = 0;
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if ( reticle_follow ) {
 			nx = HUD_nose_x;
@@ -751,7 +707,7 @@ void HudGauge::renderString(int x, int y, int gauge_id, const char *str)
 	}
 
 	if ( gauge_id > -2 ) {
-		emp_hud_string(x + nx, y + ny, gauge_id, str, true);
+		emp_hud_string(x + nx, y + ny, gauge_id, str, GR_RESIZE_FULL);
 	} else {
 		gr_string(x + nx, y + ny, str);
 	}
@@ -806,7 +762,7 @@ void HudGauge::renderBitmapColor(int frame, int x, int y)
 	emp_hud_jitter(&x, &y);
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if ( reticle_follow ) {
 			nx = HUD_nose_x;
@@ -836,7 +792,7 @@ void HudGauge::renderBitmap(int x, int y)
 	emp_hud_jitter(&x, &y);
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if ( reticle_follow ) {
 			nx = HUD_nose_x;
@@ -874,7 +830,7 @@ void HudGauge::renderBitmapEx(int frame, int x, int y, int w, int h, int sx, int
 	gr_set_bitmap(frame);
 
 	if( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if ( reticle_follow ) {
 			nx = HUD_nose_x;
@@ -898,7 +854,7 @@ void HudGauge::renderLine(int x1, int y1, int x2, int y2)
 	int nx = 0, ny = 0;
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if ( reticle_follow ) {
 			nx = HUD_nose_x;
@@ -921,7 +877,7 @@ void HudGauge::renderGradientLine(int x1, int y1, int x2, int y2)
 	int nx = 0, ny = 0;
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if(reticle_follow) {
 			nx = HUD_nose_x;
@@ -944,7 +900,7 @@ void HudGauge::renderRect(int x, int y, int w, int h)
 	int nx = 0, ny = 0;
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if ( reticle_follow ) {
 			nx = HUD_nose_x;
@@ -967,7 +923,7 @@ void HudGauge::renderCircle(int x, int y, int diameter)
 	int nx = 0, ny = 0;
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 	} else {
 		if ( reticle_follow ) {
 			nx = HUD_nose_x;
@@ -991,7 +947,7 @@ void HudGauge::setClip(int x, int y, int w, int h)
 	int hy = fl2i(HUD_offset_y);
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 
 		hx = display_offset_x;
 		hy = display_offset_y;
@@ -1027,7 +983,7 @@ void HudGauge::resetClip()
 	int w, h;
 
 	if ( gr_screen.rendering_to_texture != -1 ) {
-		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, true);
+		gr_set_screen_scale(canvas_w, canvas_h, -1, -1, target_w, target_h, target_w, target_h, true);
 		
 		hx = display_offset_x;
 		hy = display_offset_y;
@@ -1223,7 +1179,6 @@ void HUD_init()
 	hud_init_wingman_status_gauge();
 	hud_init_target_static();
 	hud_init_text_flash_gauge();
-	hud_init_kills_gauge();
 	hud_stop_subspace_notify();
 	hud_stop_objective_notify();
 	hud_target_last_transmit_level_init();
@@ -2569,14 +2524,6 @@ void HudGaugeLag::render(float frametime)
 		// Nothing to draw
 		return;
 	}
-}
-
-/**
- * @brief Obsolete initializer for the kills gauge. Now superseded by the new HUD code.
- */
-void hud_init_kills_gauge()
-{
-	Kills_gauge_loaded = 1;
 }
 
 /**

@@ -826,13 +826,14 @@ LOCAL int ai_inited = 0;
 void ai_init()
 {
 	if ( !ai_inited )	{
-		// Do the first time initialization stuff here
-		int	rval;
-
-		if ((rval = setjmp(parse_abort)) != 0) {
-			mprintf(("TABLES: Unable to parse '%s'!  Error code = %i.\n", "ai.tbl", rval));
-		} else {			
-			parse_aitbl();			
+		// Do the first time initialization stuff here		
+		try
+		{
+			parse_aitbl();
+		}
+		catch (const parse::ParseException& e)
+		{
+			mprintf(("TABLES: Unable to parse '%s'!  Error message = %s.\n", "ai.tbl", e.what()));
 		}
 
 		ai_inited = 1;
@@ -3646,7 +3647,7 @@ float maybe_recreate_path(object *objp, ai_info *aip, int force_recreate_flag, i
 /**
  * Set acceleration for ai_dock().
  */
-void set_accel_for_docking(object *objp, ai_info *aip, float dot, float dot_to_next, float dist_to_next, float dist_to_goal, ship_info *sip, float max_allowed_speed)
+void set_accel_for_docking(object *objp, ai_info *aip, float dot, float dot_to_next, float dist_to_next, float dist_to_goal, ship_info *sip, float max_allowed_speed, object *gobjp)
 {
 	float prev_dot_to_goal = aip->prev_dot_to_goal;
 	
@@ -3661,9 +3662,55 @@ void set_accel_for_docking(object *objp, ai_info *aip, float dot, float dot_to_n
 			change_acceleration(aip, -1.0f);	//	-1.0f means subtract off flFrametime from acceleration value in 0.0..1.0
 		}
 	} else {
-		// If max_allowed_speed isn't set, use the ship max speed
+		float max_bay_speed = sip->max_speed;
+
+		// Maybe gradually ramp up/down the speed of a ship flying a fighterbay path
+		if (aip->mode == AIM_BAY_EMERGE || (aip->mode == AIM_BAY_DEPART && aip->path_cur != aip->path_start)) {
+			ship_info *gsip = &Ship_info[Ships[gobjp->instance].ship_info_index];
+			polymodel *pm = model_get(gsip->model_num);
+			SCP_string pathName(pm->paths[Path_points[aip->path_start].path_num].name);
+			float speed_mult = FLT_MIN;
+
+			if (aip->mode == AIM_BAY_EMERGE) { // Arriving
+				if (gsip->pathMetadata.find(pathName) != gsip->pathMetadata.end()) {
+					speed_mult = gsip->pathMetadata[pathName].arrive_speed_mult;
+				}
+
+				if (speed_mult == FLT_MIN) {
+					speed_mult = The_mission.ai_profile->bay_arrive_speed_mult;
+				}
+			} else { // Departing
+				if (gsip->pathMetadata.find(pathName) != gsip->pathMetadata.end()) {
+					speed_mult = gsip->pathMetadata[pathName].depart_speed_mult;
+				}
+
+				if (speed_mult == FLT_MIN) {
+					speed_mult = The_mission.ai_profile->bay_depart_speed_mult;
+				}
+			}
+
+			if (speed_mult != FLT_MIN && speed_mult != 1.0f) {
+				// We use the distance between the first and last point on the path here; it's not accurate
+				// if the path is not straight, but should be good enough usually; can be changed if necessary.
+				float total_path_length = vm_vec_dist_quick(&Path_points[aip->path_start].pos, &Path_points[aip->path_start + aip->path_length - 1].pos);
+				float dist_to_end;
+
+				if (aip->mode == AIM_BAY_EMERGE) { // Arriving
+					dist_to_end = vm_vec_dist_quick(&Pl_objp->pos, &Path_points[aip->path_start].pos);
+				} else { // Departing
+					dist_to_end = vm_vec_dist_quick(&Pl_objp->pos, &Path_points[aip->path_start + aip->path_length - 1].pos);
+				}
+
+				// Calculate max speed, but respect the waypoint speed cap if it's lower
+				max_bay_speed = sip->max_speed * (speed_mult + (1.0f - speed_mult) * (dist_to_end / total_path_length));
+			}
+		}
+
+		// Cap speed to max_allowed_speed, if it's set
 		if (max_allowed_speed <= 0)
-			max_allowed_speed = sip->max_speed;
+			max_allowed_speed = max_bay_speed;
+		else
+			max_allowed_speed = MIN(max_allowed_speed, max_bay_speed);
 
 		if ((aip->mode == AIM_DOCK) && (dist_to_next < 150.0f) && (aip->path_start + aip->path_length - 2 == aip->path_cur)) {
 			set_accel_for_target_speed(objp, max_allowed_speed * MAX(dist_to_next/500.0f, 1.0f));
@@ -3739,8 +3786,7 @@ void set_accel_for_docking(object *objp, ai_info *aip, float dot, float dot_to_n
 //	Returns distance to goal point.
 float ai_path_0()
 {
-	polymodel	*pm;
-	int		num_paths, num_points;
+	int		num_points;
 	float		dot, dist_to_goal, dist_to_next, dot_to_next;
 	ship		*shipp = &Ships[Pl_objp->instance];
 	ship_info	*sip = &Ship_info[shipp->ship_info_index];
@@ -3749,7 +3795,6 @@ float ai_path_0()
 	float		mag;
 	vec3d	temp_vec, *slop_vec;
 	object	*gobjp;
-	ship		*gshipp;
 	vec3d	*cvp, *nvp, next_vec, gcvp, gnvp;		//	current and next vertices in global coordinates.
 
 	aip = &Ai_info[Ships[Pl_objp->instance].ai_index];
@@ -3758,11 +3803,6 @@ float ai_path_0()
 	Assert(Objects[aip->goal_objnum].type == OBJ_SHIP);
 
 	gobjp = &Objects[aip->goal_objnum];
-	gshipp = &Ships[gobjp->instance];
-
-	pm = model_get(Ship_info[gshipp->ship_info_index].model_num);
-	num_paths = pm->n_paths;
-	Assert(num_paths > 0);
 
 	if (aip->path_start == -1) {
 		Assert(aip->goal_objnum >= 0 && aip->goal_objnum < MAX_OBJECTS);
@@ -3854,7 +3894,7 @@ float ai_path_0()
 	dot = vm_vec_dot_to_point(&nvel_vec, &Pl_objp->pos, &gcvp);
 	dot_to_next = vm_vec_dot_to_point(&nvel_vec, &Pl_objp->pos, &gnvp);
 
-	set_accel_for_docking(Pl_objp, aip, dot, dot_to_next, dist_to_next, dist_to_goal, sip, 0);
+	set_accel_for_docking(Pl_objp, aip, dot, dot_to_next, dist_to_next, dist_to_goal, sip, 0, gobjp);
 	aip->prev_dot_to_goal = dot;
 
 	//	If moving at a non-tiny velocity, detect attaining path point by its being close to
@@ -3890,8 +3930,7 @@ float ai_path_0()
 //  1. 
 float ai_path_1()
 {
-	polymodel	*pm;
-	int		num_paths, num_points;
+	int		num_points;
 	float		dot, dist_to_goal, dist_to_next, dot_to_next;
 	ship		*shipp = &Ships[Pl_objp->instance];
 	ship_info	*sip = &Ship_info[shipp->ship_info_index];
@@ -3899,7 +3938,6 @@ float ai_path_1()
 	vec3d	nvel_vec;
 	float		mag;
 	object	*gobjp;
-	ship		*gshipp;
 	vec3d	*pvp, *cvp, *nvp, next_vec, gpvp, gcvp, gnvp;		//	previous, current and next vertices in global coordinates.
 
 	aip = &Ai_info[Ships[Pl_objp->instance].ai_index];
@@ -3908,12 +3946,6 @@ float ai_path_1()
 	Assert(Objects[aip->goal_objnum].type == OBJ_SHIP);
 
 	gobjp = &Objects[aip->goal_objnum];
-	gshipp = &Ships[gobjp->instance];
-
-	// Get path data
-	pm = model_get(Ship_info[gshipp->ship_info_index].model_num);
-	num_paths = pm->n_paths;
-	Assert(num_paths > 0);
 
 	if (aip->path_start == -1) {
 		Assert(aip->goal_objnum >= 0 && aip->goal_objnum < MAX_OBJECTS);
@@ -4010,12 +4042,12 @@ float ai_path_1()
 	dot_to_next = vm_vec_dot_to_point(&nvel_vec, &Pl_objp->pos, &gnvp);
 
 	// This path mode respects the "cap-waypoint-speed" SEXP
-	float max_allowed_speed = 0;
+	float max_allowed_speed = 0.0f;
 	if ( aip->waypoint_speed_cap > 0) {
 		max_allowed_speed = (float) aip->waypoint_speed_cap;
 	}
 
-	set_accel_for_docking(Pl_objp, aip, dot, dot_to_next, dist_to_next, dist_to_goal, sip, max_allowed_speed);
+	set_accel_for_docking(Pl_objp, aip, dot, dot_to_next, dist_to_next, dist_to_goal, sip, max_allowed_speed, gobjp);
 	aip->prev_dot_to_goal = dot;
 
 	//	If moving at a non-tiny velocity, detect attaining path point by its being close to
@@ -5644,7 +5676,7 @@ int ai_fire_primary_weapon(object *objp)
 	float	dot;
 	vec3d	v2t;
 
-	if (!( vm_vec_mag_quick(&G_predicted_pos) < AICODE_SMALL_MAGNITUDE )) {
+	if ( !(vm_vec_mag_quick(&G_predicted_pos) < AICODE_SMALL_MAGNITUDE ) && !(aip->submode == SM_AVOID) ) {
 		if ( vm_vec_cmp(&G_predicted_pos, &G_fire_pos) ) {
 			vm_vec_normalized_dir(&v2t, &G_predicted_pos, &G_fire_pos);
 			dot = vm_vec_dot(&v2t, &objp->orient.vec.fvec);
@@ -7582,7 +7614,7 @@ void update_aspect_lock_information(ai_info *aip, vec3d *vec_to_enemy, float dis
 
 	wip = &Weapon_info[swp->secondary_bank_weapons[swp->current_secondary_bank]];
 
-	if (num_weapon_types && (wip->wi_flags & WIF_LOCKED_HOMING)) {
+	if (num_weapon_types && (wip->wi_flags & WIF_LOCKED_HOMING) && !(shipp->flags2 & SF2_NO_SECONDARY_LOCKON)) {
 		if (dist_to_enemy > 300.0f - MIN(enemy_radius, 100.0f))
 			aip->ai_flags |= AIF_SEEK_LOCK;
 		else
@@ -8238,8 +8270,12 @@ void ai_chase()
 
 	//	If seeking lock, try to point directly at ship, else predict position so lasers can hit it.
 	//	If just acquired target, or target is not in reasonable cone, don't refine believed enemy position.
-	if ((real_dot_to_enemy < 0.25f) || (aip->target_time < 1.0f) || (aip->ai_flags & AIF_SEEK_LOCK)) {
+	if ((real_dot_to_enemy < 0.25f) || (aip->target_time < 1.0f)) {
 		predicted_enemy_pos = enemy_pos;
+	} else if (aip->ai_flags & AIF_SEEK_LOCK) {
+		set_predicted_enemy_pos(&predicted_enemy_pos, Pl_objp, &aip->last_aim_enemy_pos, &aip->last_aim_enemy_vel, aip);	// Set G_fire_pos
+		predicted_enemy_pos = enemy_pos;
+		G_predicted_pos = predicted_enemy_pos;
 	} else {
 		//	Set predicted_enemy_pos.
 		//	See if attacking a subsystem.
@@ -8763,9 +8799,9 @@ void ai_chase()
 					if (!(En_objp->flags & OF_PROTECTED)) {
 						ai_choose_secondary_weapon(Pl_objp, aip, En_objp);
 						int current_bank = tswp->current_secondary_bank;
-						weapon_info	*swip = &Weapon_info[tswp->secondary_bank_weapons[tswp->current_secondary_bank]];
 
 						if (current_bank > -1) {
+							weapon_info	*swip = &Weapon_info[tswp->secondary_bank_weapons[current_bank]];
 							if (aip->ai_flags & AIF_UNLOAD_SECONDARIES) {
 								if (timestamp_until(swp->next_secondary_fire_stamp[current_bank]) > swip->fire_wait*1000.0f) {
 									swp->next_secondary_fire_stamp[current_bank] = timestamp((int) (swip->fire_wait*1000.0f));
@@ -8773,7 +8809,7 @@ void ai_chase()
 							}
 
 							if (timestamp_elapsed(swp->next_secondary_fire_stamp[current_bank])) {
-								if (tswp->current_secondary_bank >= 0) {
+								if (current_bank >= 0) {
 									float firing_range;
 									
 									if (swip->wi_flags2 & WIF2_LOCAL_SSM)
@@ -12099,10 +12135,8 @@ void ai_maybe_launch_cmeasure(object *objp, ai_info *aip)
 
 	if ((aip->nearest_locked_object != -1) && (Objects[aip->nearest_locked_object].type == OBJ_WEAPON)) {
 		object	*weapon_objp;
-		weapon	*weaponp;
 
 		weapon_objp = &Objects[aip->nearest_locked_object];
-		weaponp = &Weapons[weapon_objp->instance];
 
 		if ((dist = vm_vec_dist_quick(&objp->pos, &weapon_objp->pos)) < weapon_objp->phys_info.speed*2.0f) {
 	
@@ -12458,6 +12492,7 @@ void maybe_evade_dumbfire_weapon(ai_info *aip)
 		if (aip->submode == SM_ATTACK_FOREVER) {
 			return;
 		}
+		break;
 	case AIM_GUARD:
 		//	If in guard mode and far away from guard object, don't pursue guy that hit me.
 		if ((aip->guard_objnum != -1) && (aip->guard_signature == Objects[aip->guard_objnum].signature)) {
@@ -15095,14 +15130,14 @@ void ai_ship_hit(object *objp_ship, object *hit_objp, vec3d *hitpos, int shield_
 			if ( ai_big_maybe_enter_strafe_mode(objp_ship, OBJ_INDEX(hit_objp), 1) )
 				return;
 		}
-
+		break;
 	case AIM_GUARD:
 		//	If in guard mode and far away from guard object, don't pursue guy that hit me.
-			if ((aip->guard_objnum != -1) && (aip->guard_signature == Objects[aip->guard_objnum].signature)) {
-				if (vm_vec_dist_quick(&objp_ship->pos, &Objects[aip->guard_objnum].pos) > 500.0f) {
-					return;
-				}
+		if ((aip->guard_objnum != -1) && (aip->guard_signature == Objects[aip->guard_objnum].signature)) {
+			if (vm_vec_dist_quick(&objp_ship->pos, &Objects[aip->guard_objnum].pos) > 500.0f) {
+				return;
 			}
+		}
 	case AIM_STILL:
 	case AIM_STAY_NEAR:
 		// Note: Dealt with above, at very top.  case AIM_PLAY_DEAD:

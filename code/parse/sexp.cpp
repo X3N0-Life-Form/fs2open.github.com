@@ -20,7 +20,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include <limits.h>
-#ifdef _MSC_VER
+#if defined _MSC_VER && _MSC_VER < 1600
 	#include "globalincs/msvc/stdint.h"
 #else
 	#include <stdint.h>
@@ -480,6 +480,7 @@ sexp_oper Operators[] = {
 	//Beams and Turrets Sub-Category
 	{ "fire-beam",						OP_BEAM_FIRE,							3,	5,			SEXP_ACTION_OPERATOR,	},
 	{ "fire-beam-at-coordinates",		OP_BEAM_FIRE_COORDS,					5,	9,			SEXP_ACTION_OPERATOR,	},
+	{ "beam-create",					OP_BEAM_FLOATING_FIRE,					7,	14,			SEXP_ACTION_OPERATOR,	},
 	{ "beam-free",						OP_BEAM_FREE,							2,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
 	{ "beam-free-all",					OP_BEAM_FREE_ALL,						1,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
 	{ "beam-lock",						OP_BEAM_LOCK,							2,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
@@ -684,6 +685,7 @@ sexp_oper Operators[] = {
 	{ "damaged-escort-priority-all",	OP_DAMAGED_ESCORT_LIST_ALL,				1,	MAX_COMPLETE_ESCORT_LIST,	SEXP_ACTION_OPERATOR,	},	// Goober5000
 	{ "set-support-ship",				OP_SET_SUPPORT_SHIP,					6,	7,			SEXP_ACTION_OPERATOR,	},	// Goober5000
 	{ "script-eval",					OP_SCRIPT_EVAL,							1,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
+	{ "script-eval-block",				OP_SCRIPT_EVAL_BLOCK,					1,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
 	{ "multi-eval",						OP_SCRIPT_EVAL_MULTI,					2,	INT_MAX,	SEXP_ACTION_OPERATOR,	},
 	{ "debug",							OP_DEBUG,								2,	2,			SEXP_ACTION_OPERATOR,	},	// Karajorma
 	{ "do-nothing",						OP_NOP,									0,	0,			SEXP_ACTION_OPERATOR,	},
@@ -2960,7 +2962,7 @@ int check_sexp_syntax(int node, int return_type, int recursive, int *bad_node, i
 						break;
 				}
 
-				if ( st == Armor_types.size() )
+				if ( st == Damage_types.size() )
 					return SEXP_CHECK_INVALID_DAMAGE_TYPE;
 				
 				break;
@@ -3576,8 +3578,8 @@ int stuff_sexp_variable_list()
 
 	// check for start of list
 	if (*Mp != '(') {
-		error_display(1, "Reading sexp variable list.  Found [%c].  Expecting '('.\n", *Mp);
-		longjmp(parse_abort, 6);
+        error_display(1, "Reading sexp variable list.  Found [%c].  Expecting '('.\n", *Mp);
+        throw parse::ParseException("Syntax error");
 	}
 
 	Mp++;
@@ -4392,7 +4394,7 @@ int sexp_and(int n)
 		if (CAR(n) != -1)
 		{
 			result &= is_sexp_true(CAR(n));
-			if ( Sexp_nodes[CAR(n)].value == SEXP_KNOWN_FALSE )
+			if ( Sexp_nodes[CAR(n)].value == SEXP_KNOWN_FALSE || Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER )
 				return SEXP_KNOWN_FALSE;							// if one of the AND clauses is FALSE, whole clause is false
 			if ( Sexp_nodes[CAR(n)].value != SEXP_KNOWN_TRUE )		// if the value is still unknown, they all can't be true
 				all_true = 0;
@@ -4406,7 +4408,7 @@ int sexp_and(int n)
 
 			new_result = is_sexp_true(CDR(n));
 			result &= new_result;
-			if ( Sexp_nodes[CDR(n)].value == SEXP_KNOWN_FALSE )
+			if ( Sexp_nodes[CDR(n)].value == SEXP_KNOWN_FALSE || Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER )
 				return SEXP_KNOWN_FALSE;							// if one of the AND clauses is FALSE, whole clause is false
 			if ( Sexp_nodes[CDR(n)].value != SEXP_KNOWN_TRUE )		// if the value is still unknown, they all can't be true
 				all_true = 0;
@@ -4435,7 +4437,7 @@ int sexp_and_in_sequence(int n)
 		if (CAR(n) != -1)
 		{
 			result &= is_sexp_true(CAR(n));
-			if ( Sexp_nodes[CAR(n)].value == SEXP_KNOWN_FALSE )
+			if ( Sexp_nodes[CAR(n)].value == SEXP_KNOWN_FALSE || Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER )
 				return SEXP_KNOWN_FALSE;														// if one of the AND clauses is FALSE, whole clause is false
 			if ( Sexp_nodes[CAR(n)].value != SEXP_KNOWN_TRUE )		// if value is true, mark our all_true variable for later checking
 				all_true = 0;
@@ -4458,7 +4460,7 @@ int sexp_and_in_sequence(int n)
 			if ( next_result && !result )				// if current result is true, and our running result is false, thngs didn't become true in order
 				return SEXP_KNOWN_FALSE;
 			result &= next_result;
-			if ( Sexp_nodes[CDR(n)].value == SEXP_KNOWN_FALSE )
+			if ( Sexp_nodes[CDR(n)].value == SEXP_KNOWN_FALSE || Sexp_nodes[CDR(n)].value == SEXP_NAN_FOREVER )
 				return SEXP_KNOWN_FALSE;															// if one of the OR clauses is TRUE, whole clause is true
 			if ( Sexp_nodes[CDR(n)].value != SEXP_KNOWN_TRUE )				// if the value is still unknown, they all can't be false
 				all_true = 0;
@@ -4490,13 +4492,11 @@ int sexp_not(int n)
 		if (CAR(n) != -1)
 		{
 			result = is_sexp_true(CAR(n));
-			if ( Sexp_nodes[CAR(n)].value == SEXP_KNOWN_FALSE )
+			if ( Sexp_nodes[CAR(n)].value == SEXP_KNOWN_FALSE || Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER )
 				return SEXP_KNOWN_TRUE;												// not KNOWN_FALSE == KNOWN_TRUE;
 			else if ( Sexp_nodes[CAR(n)].value == SEXP_KNOWN_TRUE )		// not KNOWN_TRUE == KNOWN_FALSE
 				return SEXP_KNOWN_FALSE;
 			else if ( Sexp_nodes[CAR(n)].value == SEXP_NAN )				// not NAN == TRUE (I think)
-				return SEXP_TRUE;
-			else if ( Sexp_nodes[CAR(n)].value == SEXP_NAN_FOREVER )
 				return SEXP_TRUE;
 		}
 		else
@@ -6242,7 +6242,7 @@ int sexp_directive_value(int n)
 		replace_current_value = eval_sexp(n);
 	}
 
-	if ((replace_current_value == SEXP_KNOWN_FALSE) || (replace_current_value == SEXP_FALSE) ) {
+	if (replace_current_value == SEXP_FALSE) { // note: any SEXP_KNOWN_FALSE result will return SEXP_FALSE
 		Directive_count += directive_value;
 	}
 	else {
@@ -8367,12 +8367,8 @@ int eval_perform_actions(int n)
 	}
 
 	// return whatever val was, but don't return known-*
-	if (val == SEXP_KNOWN_TRUE)
-		return SEXP_TRUE;
-	else if (val == SEXP_KNOWN_FALSE)
-		return SEXP_FALSE;
-	else
-		return val;
+	// note: SEXP_KNOWN_TRUE/SEXP_KNOWN_FALSE are never returned from eval_sexp
+	return val;
 }
 	
 /**
@@ -8410,7 +8406,7 @@ int eval_when(int n, int when_op_num)
 
 
 	// if value is true, perform the actions in the 'then' part
-	if (val == SEXP_TRUE || val == SEXP_KNOWN_TRUE)
+	if (val == SEXP_TRUE) // note: SEXP_KNOWN_TRUE is never returned from eval_sexp
 	{
 		// get the operator
 		int exp = CAR(actions);
@@ -8442,7 +8438,7 @@ int eval_when(int n, int when_op_num)
 		}
 	}
 	// if-then-else has actions to perform under "else"
-	else if ((val == SEXP_FALSE || val == SEXP_KNOWN_FALSE) && when_op_num == OP_IF_THEN_ELSE)
+	else if (val == SEXP_FALSE && when_op_num == OP_IF_THEN_ELSE) // note: SEXP_KNOWN_FALSE is never returned from eval_sexp
 	{
 		// skip past the "if" action
 		actions = CDR(actions);
@@ -8460,10 +8456,8 @@ int eval_when(int n, int when_op_num)
 		}
 
 		// invert val so that we behave like a when with opposite results
-		if (val == SEXP_KNOWN_FALSE)
-			val = SEXP_KNOWN_TRUE;
-		else
-			val = SEXP_TRUE;
+		// note: SEXP_KNOWN_FALSE is never returned from eval_sexp
+		val = SEXP_TRUE;
 	}
 
 	if (is_blank_argument_op(when_op_num))
@@ -8485,11 +8479,10 @@ int eval_when(int n, int when_op_num)
 	// thanks to MageKing17 for noticing that we need to short-circuit on the correct node!
 	int short_circuit_node = (arg_handler >= 0) ? arg_handler : cond;
 
-	if (Sexp_nodes[short_circuit_node].value == SEXP_KNOWN_FALSE)
+	if (Sexp_nodes[short_circuit_node].value == SEXP_KNOWN_FALSE || Sexp_nodes[short_circuit_node].value == SEXP_NAN_FOREVER)
 		return SEXP_KNOWN_FALSE;  // no need to waste time on this anymore
 
-	if (val == SEXP_KNOWN_FALSE)
-		return SEXP_FALSE;  // can't return known false, as this would bypass future actions under the when
+	// note: val can't be SEXP_KNOWN_FALSE at this point
 
 	return val;
 }
@@ -8510,7 +8503,7 @@ int eval_cond(int n)
 
 		// if the conditional evaluated to true, then we must evaluate the rest of the expression returning
 		// the value of this evaluation
-		if (val == SEXP_TRUE || val == SEXP_KNOWN_TRUE)
+		if (val == SEXP_TRUE) // note: any SEXP_KNOWN_TRUE result is returned as SEXP_TRUE
 		{
 			int actions, exp;
 
@@ -8566,6 +8559,13 @@ int test_argument_nodes_for_condition(int n, int condition_node, int *num_true, 
 			// evaluate conditional for current argument
 			Sexp_replacement_arguments.push_back(Sexp_nodes[n].text);
 			val = eval_sexp(condition_node);
+			if ( Sexp_nodes[condition_node].value == SEXP_KNOWN_TRUE ||
+					Sexp_nodes[condition_node].value == SEXP_KNOWN_FALSE) {
+				val = Sexp_nodes[condition_node].value;
+			} else if ( Sexp_nodes[condition_node].value == SEXP_NAN_FOREVER ) {
+				// In accordance with SEXP_NAN/SEXP_NAN_FOREVER becoming SEXP_FALSE in eval_sexp()
+				val = SEXP_KNOWN_FALSE;
+			}
 
 			switch (val)
 			{
@@ -8640,6 +8640,13 @@ int test_argument_vector_for_condition(SCP_vector<char*> argument_vector, bool a
 			// evaluate conditional for current argument
 			Sexp_replacement_arguments.push_back(argument_vector[i]);
 			val = eval_sexp(condition_node);
+			if ( Sexp_nodes[condition_node].value == SEXP_KNOWN_TRUE ||
+					Sexp_nodes[condition_node].value == SEXP_KNOWN_FALSE) {
+				val = Sexp_nodes[condition_node].value;
+			} else if ( Sexp_nodes[condition_node].value == SEXP_NAN_FOREVER ) {
+				// In accordance with SEXP_NAN/SEXP_NAN_FOREVER becoming SEXP_FALSE in eval_sexp()
+				val = SEXP_KNOWN_FALSE;
+			}
 
 			switch (val)
 			{
@@ -8705,12 +8712,10 @@ int eval_any_of(int arg_handler_node, int condition_node)
 	num_valid_arguments = test_argument_nodes_for_condition(n, condition_node, &num_true, &num_false, &num_known_true, &num_known_false);
 
 	// use the sexp_or algorithm
-	if (num_known_true)
-		return SEXP_KNOWN_TRUE;
+	if (num_known_true || num_true)
+		return SEXP_TRUE;
 	else if (num_known_false == num_valid_arguments)
 		return SEXP_KNOWN_FALSE;
-	else if (num_true)
-		return SEXP_TRUE;
 	else
 		return SEXP_FALSE;
 }
@@ -8728,10 +8733,8 @@ int eval_every_of(int arg_handler_node, int condition_node)
 	num_valid_arguments = test_argument_nodes_for_condition(n, condition_node, &num_true, &num_false, &num_known_true, &num_known_false);
 
 	// use the sexp_and algorithm
-	if (num_known_false)
+	if ((!num_valid_arguments) || num_known_false)
 		return SEXP_KNOWN_FALSE;
-	else if (num_known_true == num_valid_arguments)
-		return SEXP_KNOWN_TRUE;
 	else if (num_false)
 		return SEXP_FALSE;
 	else
@@ -8756,12 +8759,10 @@ int eval_number_of(int arg_handler_node, int condition_node)
 
 	// use the sexp_or algorithm, modified
 	// (true if at least threshold arguments are true)
-	if (num_known_true >= threshold)
-		return SEXP_KNOWN_TRUE;
+	if (num_true + num_known_true >= threshold)
+		return SEXP_TRUE;
 	else if (num_valid_arguments - num_known_false < threshold)
 		return SEXP_KNOWN_FALSE;
-	else if (num_true + num_known_true >= threshold)
-		return SEXP_TRUE;
 	else
 		return SEXP_FALSE;
 }
@@ -8773,8 +8774,16 @@ int eval_number_of(int arg_handler_node, int condition_node)
 // addendum: hook karajorma's random-multiple-of into the same sexp
 int eval_random_of(int arg_handler_node, int condition_node, bool multiple)
 {
-	int n = -1, i, val, num_valid_args, random_argument;
+	int n = -1, i, val, num_valid_args, random_argument, num_known_false = 0;
 	Assert(arg_handler_node != -1 && condition_node != -1);
+
+	// get the number of valid arguments
+	num_valid_args = query_sexp_args_count(arg_handler_node, true);
+
+	if (num_valid_args == 0)
+	{
+		return SEXP_KNOWN_FALSE;	// Not much point in trying to evaluate it again.
+	}
 
 	// find which argument we picked, if we picked one
 	if (!multiple)
@@ -8793,31 +8802,30 @@ int eval_random_of(int arg_handler_node, int condition_node, bool multiple)
 	if (n == -1)
 	{
 		n = CDR(arg_handler_node);
-
-		// get the number of valid arguments
-		num_valid_args = query_sexp_args_count(arg_handler_node, true);
-		if (num_valid_args == 0)
-		{
-			return SEXP_FALSE;
-		}
+		int temp_node = n;
 
 		// pick an argument and iterate to it
 		random_argument = rand_internal(1, num_valid_args);
 		i = 0;
-		while (true)
+		for (int j = 0; j < num_valid_args; temp_node = CDR(temp_node))
 		{
 			Assert(n >= 0);
 
 			// count only valid arguments
-			if (Sexp_nodes[n].flags & SNF_ARGUMENT_VALID)
-				i++;
+			if (Sexp_nodes[temp_node].flags & SNF_ARGUMENT_VALID) {
+				j++;
+				if (i < random_argument && (++i == random_argument)) {
+					// Found the node we want, store it for use
+					n = temp_node;
+				}
 
-			// if we're at the right one, we're done
-			if (i >= random_argument)
-				break;
+				if ((Sexp_nodes[temp_node].value == SEXP_KNOWN_FALSE) || (Sexp_nodes[temp_node].value == SEXP_NAN_FOREVER))
+					num_known_false++;
+			}
+		}
 
-			// iterate
-			n = CDR(n);
+		if (num_known_false == num_valid_args) {
+			return SEXP_KNOWN_FALSE;	// We're going nowhere fast.
 		}
 
 		// save it, if we're saving
@@ -8840,9 +8848,11 @@ int eval_random_of(int arg_handler_node, int condition_node, bool multiple)
 		val = eval_sexp(condition_node);
 
 		// true?
-		if (val == SEXP_TRUE || val == SEXP_KNOWN_TRUE)
+		if (val == SEXP_TRUE)
 		{
 			Sexp_applicable_argument_list.add_data(Sexp_nodes[n].text);
+		} else if ((!multiple || num_valid_args == 1) && (Sexp_nodes[condition_node].value == SEXP_KNOWN_FALSE || Sexp_nodes[condition_node].value == SEXP_NAN_FOREVER)) {
+			val = SEXP_KNOWN_FALSE;	// If we can't randomly pick another one and this one is guaranteed never to be true, then give up now.
 		}
 		
 		// clear argument, but not list, as we'll need it later
@@ -8889,9 +8899,11 @@ int eval_in_sequence(int arg_handler_node, int condition_node)
 		val = eval_sexp(condition_node);
 
 		// true?
-		if (val == SEXP_TRUE || val == SEXP_KNOWN_TRUE)
+		if (val == SEXP_TRUE)
 		{
 			Sexp_applicable_argument_list.add_data(Sexp_nodes[n].text);
+		} else if ((Sexp_nodes[condition_node].value == SEXP_KNOWN_FALSE) || (Sexp_nodes[condition_node].value == SEXP_NAN_FOREVER)) {
+			val = SEXP_KNOWN_FALSE;	// If we're wasting our time evaluating this ever again, just go ahead and short-circuit.
 		}
 
 		// clear argument, but not list, as we'll need it later
@@ -8951,19 +8963,22 @@ int eval_for_counter(int arg_handler_node, int condition_node)
 	for (i = counter_start; ((counter_step > 0) ? i <= counter_stop : i >= counter_stop); i += counter_step)
 	{
 		sprintf(buf, "%d", i);
-		argument_vector.push_back(strdup(buf));
+		argument_vector.push_back(vm_strdup(buf));
 	}
 
 	// test the whole argument vector
 	num_valid_arguments = test_argument_vector_for_condition(argument_vector, true, condition_node, &num_true, &num_false, &num_known_true, &num_known_false);
 
+	while (!argument_vector.empty()) {
+		vm_free(argument_vector.back());
+		argument_vector.pop_back();
+	}
+
 	// use the sexp_or algorithm
-	if (num_known_true)
-		return SEXP_KNOWN_TRUE;
+	if (num_known_true || num_true)
+		return SEXP_TRUE;
 	else if (num_known_false == num_valid_arguments)
 		return SEXP_KNOWN_FALSE;
-	else if (num_true)
-		return SEXP_TRUE;
 	else
 		return SEXP_FALSE;
 }
@@ -9188,6 +9203,7 @@ int sexp_is_iff(int n)
 			}
 
 			case OSWPT_TYPE_WING:
+			case OSWPT_TYPE_WING_NOT_PRESENT:
 			{
 				for (i = 0; i < oswpt.wingp->current_count; i++)
 				{
@@ -9198,7 +9214,27 @@ int sexp_is_iff(int n)
 
 				break;
 			}
-	
+
+			case OSWPT_TYPE_EXITED:
+			{
+				// see if we can find information about the exited ship (if it is a ship)
+				int exited_index = ship_find_exited_ship_by_name(CTEXT(n));
+				if (exited_index >= 0)
+				{
+					// if the team doesn't match the team specified, return false immediately
+					if (Ships_exited[exited_index].team != team)
+						return SEXP_KNOWN_FALSE;
+				}
+				else
+				{
+					// it's probably an exited wing, which we don't store information about
+					return SEXP_NAN_FOREVER;
+				}
+			}
+
+			// we don't handle the other cases
+			default:
+				return SEXP_NAN;
 		}
 
 	}
@@ -10470,7 +10506,7 @@ void sexp_adjust_audio_volume(int node)
 
 	if (n > 0) {
 		int option = audio_volume_option_lookup(CTEXT(n));
-		if (option > 0) {
+		if (option >= 0) {
 			n = CDR(n);
 
 			float target_volume = 1.0f;
@@ -12558,52 +12594,40 @@ void sexp_tech_reset_to_default()
  */
 void sexp_allow_ship(int n)
 {
-	int idx;
-	char name[NAME_LENGTH], temp[NAME_LENGTH];
+	int sindex;
+	char *name;
 
 	// this function doesn't mean anything when not in campaign mode
 	if ( !(Game_mode & GM_CAMPAIGN_MODE) )
 		return;
 
-	// get the base name of the ship
-	strcpy_s(name, CTEXT(n));
-	end_string_at_first_hash_symbol(name);
+	// get the name of the ship and lookup up the ship_info index for it
+	name = CTEXT(n);
+	sindex = ship_info_lookup( name );
+	if ( sindex == -1 )
+		return;
 
-	// add that ship, as well as any # equivalents
-	for (idx = 0; idx < Num_ship_classes; idx++)
-	{
-		strcpy_s(temp, Ship_info[idx].name);
-		end_string_at_first_hash_symbol(temp);
-
-		// we have a match, so allow this ship
-		if (!strcmp(name, temp))
-			mission_campaign_save_persistent(CAMPAIGN_PERSISTENT_SHIP, idx);
-	}
+	// now we have a valid index --
+	mission_campaign_save_persistent( CAMPAIGN_PERSISTENT_SHIP, sindex );
 }
 
 void sexp_allow_weapon(int n)
 {
-	int idx;
-	char name[NAME_LENGTH], temp[NAME_LENGTH];
+	int sindex;
+	char *name;
 
 	// this function doesn't mean anything when not in campaign mode
 	if ( !(Game_mode & GM_CAMPAIGN_MODE) )
 		return;
 
-	// get the base name of the weapon
-	strcpy_s(name, CTEXT(n));
-	end_string_at_first_hash_symbol(name);
+	// get the name of the weapon and lookup up the weapon_info index for it
+	name = CTEXT(n);
+	sindex = weapon_info_lookup( name );
+	if ( sindex == -1 )
+		return;
 
-	// add that weapon, as well as any # equivalents
-	for (idx = 0; idx < Num_weapon_types; idx++)
-	{
-		strcpy_s(temp, Weapon_info[idx].name);
-		end_string_at_first_hash_symbol(temp);
-
-		// we have a match, so allow this weapon
-		if (!strcmp(name, temp))
-			mission_campaign_save_persistent(CAMPAIGN_PERSISTENT_WEAPON, idx);
-	}
+	// now we have a valid index --
+	mission_campaign_save_persistent( CAMPAIGN_PERSISTENT_WEAPON, sindex );
 }
 
 /**
@@ -16532,6 +16556,7 @@ void parse_copy_damage(p_object *target_pobjp, ship *source_shipp)
 	// ...and shields
 	target_pobjp->ship_max_shield_strength = source_shipp->ship_max_shield_strength;
 	target_pobjp->initial_shields = fl2i(get_shield_pct(source_objp) * 100.0f);
+	target_pobjp->max_shield_recharge = source_shipp->max_shield_recharge;
 
 
 	// search through all subsystems on source ship and map them onto target ship
@@ -16908,6 +16933,8 @@ void sexp_beam_fire(int node, bool at_coords)
 	// hmm, this could be wacky. Let's just simply select the first beam weapon in the turret
 	fire_info.beam_info_index = -1;	
 	for (idx=0; idx<fire_info.turret->weapons.num_primary_banks; idx++) {
+		Assertion(fire_info.turret->weapons.primary_bank_weapons[idx] >= 0 && fire_info.turret->weapons.primary_bank_weapons[idx] < MAX_WEAPON_TYPES,
+				"sexp_beam_fire: found invalid weapon index (%i), get a coder\n!", fire_info.turret->weapons.primary_bank_weapons[idx]);
 		// store the weapon info index
 		if (Weapon_info[fire_info.turret->weapons.primary_bank_weapons[idx]].wi_flags & WIF_BEAM) {
 			fire_info.beam_info_index = fire_info.turret->weapons.primary_bank_weapons[idx];
@@ -16922,6 +16949,99 @@ void sexp_beam_fire(int node, bool at_coords)
 		Warning(LOCATION, "Couldn't fire turret on ship %s; subsystem %s has no beam weapons", CTEXT(node), CTEXT(CDR(node)));
 	}
 }	
+
+void sexp_beam_floating_fire(int n)
+{
+	int sindex;
+	beam_fire_info fire_info;
+	memset(&fire_info, 0, sizeof(beam_fire_info));
+	fire_info.accuracy = 0.000001f;							// this will guarantee a hit
+	fire_info.bfi_flags |= BFIF_FLOATING_BEAM;
+	fire_info.turret = NULL;		// A free-floating beam isn't fired from a subsystem.
+
+	fire_info.beam_info_index = weapon_info_lookup(CTEXT(n));
+	n = CDR(n);
+	if (fire_info.beam_info_index < 0)
+	{
+		Warning(LOCATION, "Invalid weapon class passed to beam-create; weapon type '%s' does not exist!\n", CTEXT(n));
+		return;
+	}
+	if (!(Weapon_info[fire_info.beam_info_index].wi_flags & WIF_BEAM)) {
+		Warning(LOCATION, "Invalid weapon class passed to beam-create; weapon type '%s' is not a beam!\n", CTEXT(n));
+		return;
+	}
+
+	fire_info.shooter = NULL;
+	if (stricmp(CTEXT(n), SEXP_NONE_STRING))
+	{
+		sindex = ship_name_lookup(CTEXT(n));
+
+		if (sindex >= 0)
+			fire_info.shooter = &Objects[Ships[sindex].objnum];
+	}
+	n = CDR(n);
+
+	fire_info.team = static_cast<char>(iff_lookup(CTEXT(n)));
+	n = CDR(n);
+
+	fire_info.starting_pos.xyz.x = static_cast<float>(eval_num(n));
+	n = CDR(n);
+	fire_info.starting_pos.xyz.y = static_cast<float>(eval_num(n));
+	n = CDR(n);
+	fire_info.starting_pos.xyz.z = static_cast<float>(eval_num(n));
+	n = CDR(n);
+
+	fire_info.target = NULL;
+	fire_info.target_subsys = NULL;
+
+	sindex = -1;
+	if (stricmp(CTEXT(n), SEXP_NONE_STRING))
+	{
+		sindex = ship_name_lookup(CTEXT(n));
+
+		if (sindex >= 0)
+			fire_info.target = &Objects[Ships[sindex].objnum];
+	} else {
+		fire_info.bfi_flags |= BFIF_TARGETING_COORDS;
+	}
+	n = CDR(n);
+
+	if (n >= 0 && stricmp(CTEXT(n), SEXP_NONE_STRING))
+	{
+		if (sindex >= 0)
+			fire_info.target_subsys = ship_get_subsys(&Ships[sindex], CTEXT(n));
+
+		n = CDR(n);
+	}
+
+	if (n >= 0) {
+		fire_info.target_pos1.xyz.x = fire_info.target_pos2.xyz.x = static_cast<float>(eval_num(n));
+		n = CDR(n);
+	}
+	if (n >= 0) {
+		fire_info.target_pos1.xyz.y = fire_info.target_pos2.xyz.y = static_cast<float>(eval_num(n));
+		n = CDR(n);
+	}
+	if (n >= 0) {
+		fire_info.target_pos1.xyz.z = fire_info.target_pos2.xyz.z = static_cast<float>(eval_num(n));
+		n = CDR(n);
+	}
+
+	if (n >= 0) {
+		fire_info.target_pos2.xyz.x = static_cast<float>(eval_num(n));
+		n = CDR(n);
+	}
+	if (n >= 0) {
+		fire_info.target_pos2.xyz.y = static_cast<float>(eval_num(n));
+		n = CDR(n);
+	}
+	if (n >= 0) {
+		fire_info.target_pos2.xyz.z = static_cast<float>(eval_num(n));
+		n = CDR(n);
+	}
+
+	beam_fire(&fire_info);
+}
 
 void sexp_beam_free(int node)
 {
@@ -21029,13 +21149,13 @@ void sexp_show_subtitle(int node)
 	bool post_shaded = false;
 
 	x_pos = eval_num(node);
-	if (gr_screen.max_w != 1024)
-		x_pos = (int) ((x_pos / 1024.0f) * gr_screen.max_w);
+	if (gr_screen.center_w != 1024)
+		x_pos = (int) ((x_pos / 1024.0f) * gr_screen.center_w);
 
 	n = CDR(node);
 	y_pos = eval_num(n);
-	if (gr_screen.max_h != 768)
-		y_pos = (int) ((y_pos / 768.0f) * gr_screen.max_h);
+	if (gr_screen.center_h != 768)
+		y_pos = (int) ((y_pos / 768.0f) * gr_screen.center_h);
 
 	n = CDR(n);
 	text = CTEXT(n);
@@ -21245,9 +21365,9 @@ void sexp_show_subtitle_text(int node)
 	gr_init_alphacolor(&new_color, red, green, blue, 255);
 
 	// calculate pixel positions
-	int x_pos = (int) (gr_screen.max_w * (x_pct / 100.0f));
-	int y_pos = (int) (gr_screen.max_h * (y_pct / 100.0f));
-	int width = (int) (gr_screen.max_w * (width_pct / 100.0f));
+	int x_pos = (int) (gr_screen.center_w * (x_pct / 100.0f));
+	int y_pos = (int) (gr_screen.center_h * (y_pct / 100.0f));
+	int width = (int) (gr_screen.center_w * (width_pct / 100.0f));
 
 	// add the subtitle
 	subtitle new_subtitle(x_pos, y_pos, text, NULL, display_time, fade_time, &new_color, fontnum, center_x, center_y, width, 0, post_shaded);
@@ -21308,9 +21428,9 @@ void multi_sexp_show_subtitle_text()
 	gr_init_alphacolor(&new_color, red, green, blue, 255);
 
 	// calculate pixel positions
-	int x_pos = (int)(gr_screen.max_w * (x_pct / 100.0f));
-	int y_pos = (int)(gr_screen.max_h * (y_pct / 100.0f));
-	int width = (int)(gr_screen.max_w * (width_pct / 100.0f));
+	int x_pos = (int)(gr_screen.center_w * (x_pct / 100.0f));
+	int y_pos = (int)(gr_screen.center_h * (y_pct / 100.0f));
+	int width = (int)(gr_screen.center_w * (width_pct / 100.0f));
 
 	// add the subtitle
 	subtitle new_subtitle(x_pos, y_pos, text, NULL, display_time, fade_time, &new_color, fontnum, center_x, center_y, width, 0, post_shaded);
@@ -21379,10 +21499,10 @@ void sexp_show_subtitle_image(int node)
 		height_pct = 100;
 
 	// calculate pixel positions
-	int x_pos = (int)(gr_screen.max_w * (x_pct / 100.0f));
-	int y_pos = (int)(gr_screen.max_h * (y_pct / 100.0f));
-	int width = (int)(gr_screen.max_w * (width_pct / 100.0f));
-	int height = (int)(gr_screen.max_h * (height_pct / 100.0f));
+	int x_pos = (int)(gr_screen.center_w * (x_pct / 100.0f));
+	int y_pos = (int)(gr_screen.center_h * (y_pct / 100.0f));
+	int width = (int)(gr_screen.center_w * (width_pct / 100.0f));
+	int height = (int)(gr_screen.center_h * (height_pct / 100.0f));
 
 	// add the subtitle
 	subtitle new_subtitle(x_pos, y_pos, NULL, image, display_time, fade_time, NULL, -1, center_x, center_y, width, height, post_shaded);
@@ -21703,7 +21823,7 @@ void multi_sexp_show_hide_jumpnode(bool show)
 
 //WMC - This is a bit of a hack, however, it's easier than
 //coding in a whole new Script_system function.
-int sexp_script_eval(int node, int return_type)
+int sexp_script_eval(int node, int return_type, bool concat_args = false)
 {
 	int n = node;
 
@@ -21755,15 +21875,32 @@ int sexp_script_eval(int node, int return_type)
 			break;
 		case OPR_NULL:
 			{
+				SCP_string script_cmd;
 				while (n != -1)
 				{
 					char* s = CTEXT(n);
-					bool success = Script_system.EvalString(s, NULL, NULL);
 
-					if (!success)
-						Warning(LOCATION, "sexp-script-eval failed to evaluate string \"%s\"; check your syntax", s);
+					if (concat_args)
+					{
+						script_cmd.append(CTEXT(n));
+					}
+					else
+					{
+						bool success = Script_system.EvalString(s, NULL, NULL);
+
+						if (!success)
+							Warning(LOCATION, "sexp-script-eval failed to evaluate string \"%s\"; check your syntax", s);
+					}
 
 					n = CDR(n);
+				}
+
+				if (concat_args)
+				{
+					bool success = Script_system.EvalString(script_cmd.c_str(), NULL, NULL);
+
+					if (!success)
+						Warning(LOCATION, "sexp-script-eval failed to evaluate string \"%s\"; check your syntax", script_cmd.c_str());
 				}
 			}
 			break;
@@ -22242,7 +22379,7 @@ int is_sexp_true(int cur_node, int referenced_node)
 {
 	int result = eval_sexp(cur_node, referenced_node);
 
-	return ((result == SEXP_TRUE) || (result == SEXP_KNOWN_TRUE));
+	return (result == SEXP_TRUE); // note: any SEXP_KNOWN_TRUE result will return SEXP_TRUE
 }
 
 
@@ -22492,7 +22629,13 @@ int eval_sexp(int cur_node, int referenced_node)
 			add_to_event_log_buffer(get_operator_index(cur_node), SEXP_KNOWN_FALSE);
 		}
 		return SEXP_FALSE;
-	}		
+	}
+	else if (Sexp_nodes[cur_node].value == SEXP_NAN_FOREVER) {
+		if (Log_event) {
+			add_to_event_log_buffer(get_operator_index(cur_node), SEXP_NAN_FOREVER);
+		}
+		return SEXP_FALSE;
+	}
 
 	if (Sexp_nodes[cur_node].first != -1) {
 		node = CAR(cur_node);
@@ -24564,6 +24707,10 @@ int eval_sexp(int cur_node, int referenced_node)
 				sexp_val = sexp_script_eval(node, OPR_NULL);
 				break;
 				
+			case OP_SCRIPT_EVAL_BLOCK:
+				sexp_val = sexp_script_eval(node, OPR_NULL, true);
+				break;
+
 			case OP_SCRIPT_EVAL_MULTI:
 				sexp_script_eval_multi(node);
 				sexp_val = SEXP_TRUE;
@@ -24674,7 +24821,7 @@ int eval_sexp(int cur_node, int referenced_node)
 
 		// if we haven't returned, check the sexp value of the sexpression evaluation.  A special
 		// value of known true or known false means that we should set the sexp.value field for
-		// short circuit eval (and return that special value as well).
+		// short circuit eval.
 		if (sexp_val == SEXP_KNOWN_TRUE) {
 			Sexp_nodes[cur_node].value = SEXP_KNOWN_TRUE;
 			return SEXP_TRUE;
@@ -25439,6 +25586,7 @@ int query_operator_return_type(int op)
 		case OP_SET_VARIABLE_BY_INDEX:
 		case OP_BEAM_FIRE:
 		case OP_BEAM_FIRE_COORDS:
+		case OP_BEAM_FLOATING_FIRE:
 		case OP_BEAM_FREE:
 		case OP_BEAM_FREE_ALL:
 		case OP_BEAM_LOCK:
@@ -25602,6 +25750,7 @@ int query_operator_return_type(int op)
 		case OP_SET_SECONDARY_WEAPON:
 		case OP_SET_NUM_COUNTERMEASURES:
 		case OP_SCRIPT_EVAL:
+		case OP_SCRIPT_EVAL_BLOCK:
 		case OP_SCRIPT_EVAL_STRING:
 		case OP_SCRIPT_EVAL_MULTI:
 		case OP_ENABLE_BUILTIN_MESSAGES:
@@ -26977,6 +27126,21 @@ int query_operator_argument_type(int op, int argnum)
 					return OPF_NUMBER;
 			}
 
+		case OP_BEAM_FLOATING_FIRE:
+			switch(argnum) {
+				case 0:
+					return OPF_WEAPON_NAME;
+				case 1:
+				case 6:
+					return OPF_SHIP_OR_NONE;
+				case 2:
+					return OPF_IFF;
+				case 7:
+					return OPF_SUBSYSTEM_OR_NONE;
+				default:
+					return OPF_NUMBER;
+			}
+
 		case OP_IS_TAGGED:
 			return OPF_SHIP;
 
@@ -27693,6 +27857,7 @@ int query_operator_argument_type(int op, int argnum)
 				return OPF_BOOL;
 
 		case OP_SCRIPT_EVAL_NUM:
+		case OP_SCRIPT_EVAL_BLOCK:
 		case OP_SCRIPT_EVAL:
 			return OPF_STRING;
 
@@ -29279,6 +29444,7 @@ int get_subcategory(int sexp_id)
 
 		case OP_BEAM_FIRE:
 		case OP_BEAM_FIRE_COORDS:
+		case OP_BEAM_FLOATING_FIRE:
 		case OP_BEAM_FREE:
 		case OP_BEAM_FREE_ALL:
 		case OP_BEAM_LOCK:
@@ -29480,6 +29646,7 @@ int get_subcategory(int sexp_id)
 		case OP_DAMAGED_ESCORT_LIST_ALL:
 		case OP_SET_SUPPORT_SHIP:
 		case OP_SCRIPT_EVAL_STRING:
+		case OP_SCRIPT_EVAL_BLOCK:
 		case OP_SCRIPT_EVAL:
 		case OP_SCRIPT_EVAL_MULTI:
 			return CHANGE_SUBCATEGORY_OTHER;
@@ -29822,7 +29989,7 @@ sexp_help_struct Sexp_help[] = {
 		"If no input coordinates are specified, the coordinate returned is the coordinate of the object (or object's "
 		"subsystem) itself.  Takes 1 to 5 arguments...\r\n"
 		"\t1: The name of a ship, wing, or waypoint.\r\n"
-		"\t2: A ship subsystem (or \""SEXP_NONE_STRING"\" if the first argument is not a ship - optional).\r\n"
+		"\t2: A ship subsystem (or \"" SEXP_NONE_STRING "\" if the first argument is not a ship - optional).\r\n"
 		"\t3: The relative X coordinate (optional).\r\n"
 		"\t4: The relative Y coordinate (optional).\r\n"
 		"\t5: The relative Z coordinate (optional).\r\n" },
@@ -29834,7 +30001,7 @@ sexp_help_struct Sexp_help[] = {
 		"If no input coordinates are specified, the coordinate returned is the coordinate of the object (or object's "
 		"subsystem) itself.  Takes 1 to 5 arguments...\r\n"
 		"\t1: The name of a ship, wing, or waypoint.\r\n"
-		"\t2: A ship subsystem (or \""SEXP_NONE_STRING"\" if the first argument is not a ship - optional).\r\n"
+		"\t2: A ship subsystem (or \"" SEXP_NONE_STRING "\" if the first argument is not a ship - optional).\r\n"
 		"\t3: The relative X coordinate (optional).\r\n"
 		"\t4: The relative Y coordinate (optional).\r\n"
 		"\t5: The relative Z coordinate (optional).\r\n" },
@@ -29846,7 +30013,7 @@ sexp_help_struct Sexp_help[] = {
 		"If no input coordinates are specified, the coordinate returned is the coordinate of the object (or object's "
 		"subsystem) itself.  Takes 1 to 5 arguments...\r\n"
 		"\t1: The name of a ship, wing, or waypoint.\r\n"
-		"\t2: A ship subsystem (or \""SEXP_NONE_STRING"\" if the first argument is not a ship - optional).\r\n"
+		"\t2: A ship subsystem (or \"" SEXP_NONE_STRING "\" if the first argument is not a ship - optional).\r\n"
 		"\t3: The relative X coordinate (optional).\r\n"
 		"\t4: The relative Y coordinate (optional).\r\n"
 		"\t5: The relative Z coordinate (optional).\r\n" },
@@ -31500,7 +31667,8 @@ sexp_help_struct Sexp_help[] = {
 		"friendly-stealth-invisible - If set, the ship can't be targeted even by ships on the same team\r\n"
 		"hide-ship-name - If set, the ship name can't be seen when the ship is targeted\r\n"
 		"hidden-from-sensors - If set, the ship can't be targeted and appears on radar as a blinking dot\r\n"
-		"no-dynamic - Will stop allowing the AI to persue dynamic goals (eg: chasing ships it was not ordered to)\r\n"},
+		"no-dynamic - Will stop allowing the AI to persue dynamic goals (eg: chasing ships it was not ordered to)\r\n"
+		"no-secondary-lock-on - Will disable target acquisition for secondaries of all types (does not affect turrets)\r\n"},
 
 	{ OP_SHIP_VISIBLE, "ship-visible\r\n"
 		"\tCauses the ships listed in this sexpression to be visible with player sensors.\r\n\r\n"
@@ -31891,6 +32059,23 @@ sexp_help_struct Sexp_help[] = {
 		"\t8:\tsecond y coordinate to be targeted (optional; only used for slash beams)\r\n"
 		"\t9:\tsecond z coordinate to be targeted (optional; only used for slash beams)\r\n" },
 
+	{ OP_BEAM_FLOATING_FIRE, "beam-create\r\n"
+		"\tFire a beam weapon from the specified coordinates to the specified target. Not compatible with multiplayer.\r\n"
+		"\t1:\tBeam weapon to fire\r\n"
+		"\t2:\tParent ship (for kill credit, if applicable; can be none)\r\n"
+		"\t3:\tTeam for this beam to be on (related to difficulty-based damage)\r\n"
+		"\t4:\tX coordinate to fire from\r\n"
+		"\t5:\tY coordinate to fire from\r\n"
+		"\t6:\tZ coordinate to fire from\r\n"
+		"\t7:\tTarget ship (can be none)\r\n"
+		"\t8:\tTarget subsystem (optional, can be none)\r\n"
+		"\t9:\tX coordinate to fire at (optional)\r\n"
+		"\t10:\tY coordinate to fire at (optional)\r\n"
+		"\t11:\tZ coordinate to fire at (optional)\r\n"
+		"\t12:\tSecond X coordinate to fire at (optional; used for slash beams)\r\n"
+		"\t13:\tSecond Y coordinate to fire at (optional; used for slash beams)\r\n"
+		"\t14:\tSecond Z coordinate to fire at (optional; used for slash beams)\r\n" },
+
 	{ OP_IS_TAGGED, "is-tagged\r\n"
 		"\tReturns whether a given ship is tagged or not\r\n"},
 
@@ -32152,7 +32337,7 @@ sexp_help_struct Sexp_help[] = {
 		"\tReturns a percentage from 0 to 100\r\n"
 		"\t1: Ship name\r\n" },
 
-	{ OP_GET_ETS_VALUE, "get-ets-values\r\n"
+	{ OP_GET_ETS_VALUE, "get-ets-value\r\n"
 		"\tGets one ETS index for a ship\r\n"
 		"\t1: ETS index to get, Engine|Shield|Weapon\r\n"
 		"\t2: Ship name\r\n"},
@@ -32473,8 +32658,8 @@ sexp_help_struct Sexp_help[] = {
 		"\tSets the amount of ammo for the specified ballistic bank\r\n"
 		"\t1: Ship name\r\n"
 		"\t2: Bank to check (0, 1, and 2 are legal banks)\r\n" 
-		"\t3: Number to set this bank to (If this is larger than the maximimum, bank will be set to maximum).\r\n"
-		"\t4: Rearm Limit. Support ships will only supply this number of weapons (If this is larger than the maximimum, bank will be set to maximum)"
+		"\t3: Number to set this bank to (If this is larger than the maximum, bank will be set to maximum).\r\n"
+		"\t4: Rearm Limit. Support ships will only supply this number of weapons (If this is larger than the maximum, bank will be set to maximum)"
 	},
 
 	// Karajorma
@@ -32482,8 +32667,8 @@ sexp_help_struct Sexp_help[] = {
 		"\tSets the amount of ammo for the specified bank\r\n"
 		"\t1: Ship name\r\n"
 		"\t2: Bank to check (0, 1, 2 and 3 are legal banks)\r\n" 
-		"\t3: Number to set this bank to (If this is larger than the maximimum, bank will be set to maximum).\r\n"
-		"\t4: Rearm Limit. Support ships will only supply this number of weapons (If this is larger than the maximimum, bank will be set to maximum)"
+		"\t3: Number to set this bank to (If this is larger than the maximum, bank will be set to maximum).\r\n"
+		"\t4: Rearm Limit. Support ships will only supply this number of weapons (If this is larger than the maximum, bank will be set to maximum)"
 	},
 	
 	// Karajorma
@@ -32492,8 +32677,8 @@ sexp_help_struct Sexp_help[] = {
 		"\t1: Ship name\r\n"
 		"\t2: Bank to check (0, 1 and 2 are legal banks)\r\n" 
 		"\t3: Name of the primary weapon \r\n"
-		"\t4: Number to set this bank to (If this is larger than the maximimum, bank will be set to maximum)\r\n"
-		"\t5: Rearm Limit. Support ships will only supply this number of weapons (If this is larger than the maximimum, bank will be set to maximum)"
+		"\t4: Number to set ammo of this bank to (If this is larger than the maximum, bank will be set to maximum)\r\n"
+		"\t5: Rearm Limit. Support ships will only supply this number of weapons (If this is larger than the maximum, bank will be set to maximum)"
 	},
 	
 	// Karajorma
@@ -32502,8 +32687,8 @@ sexp_help_struct Sexp_help[] = {
 		"\t1: Ship name\r\n"
 		"\t2: Bank to check (0, 1, 2 and 3 are legal banks)\r\n" 
 		"\t3: Name of the secondary weapon \r\n"
-		"\t4: Number to set this bank to (If this is larger than the maximimum, bank will be set to maximum)\r\n"
-		"\t5: Rearm Limit. Support ships will only supply this number of weapons (If this is larger than the maximimum, bank will be set to maximum)"
+		"\t4: Number to set ammo of this bank to (If this is larger than the maximum, bank will be set to maximum)\r\n"
+		"\t5: Rearm Limit. Support ships will only supply this number of weapons (If this is larger than the maximum, bank will be set to maximum)"
 	},
 
 
@@ -33120,6 +33305,12 @@ sexp_help_struct Sexp_help[] = {
 		"\tEvaluates the given script\r\n"
 		"Takes at least 1 argument...\r\n"
 		"\t1:\tScript to evaluate\r\n"
+	},
+
+	{OP_SCRIPT_EVAL_BLOCK, "script-eval-block\r\n"
+		"\tEvaluates the concatenation of all arguments as a script\r\n"
+		"Takes at least 1 argument...\r\n"
+		"\tAll:\tScript to evaluate\r\n"
 	},
 
 	{OP_SCRIPT_EVAL_MULTI, "multi-eval\r\n"

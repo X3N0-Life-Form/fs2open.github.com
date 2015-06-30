@@ -142,32 +142,35 @@ bool ScreenClassInfoEntry::Parse()
 
 void GUISystem::ParseClassInfo(char* filename)
 {
-	int rval;
-
 	if (ClassInfoParsed) {
 		Warning(LOCATION, "Class info is being parsed twice");
 		DestroyClassInfo();
 	}
+	
+	try
+	{
+		read_file_text(filename);
+		reset_parse();
+		ScreenClassInfo.Parse();
 
-	if ((rval = setjmp(parse_abort)) != 0) {
-		mprintf(("WMCGUI: Unable to parse '%s'!  Error code = %i.\n", filename, rval));
+		bool flag;
+		do {
+			ScreenClassInfoEntry* sciep = new ScreenClassInfoEntry;
+			flag = sciep->Parse();
+			if (flag) {
+				list_append(&ScreenClassInfo, sciep);
+			} else {
+				delete sciep;
+			}
+		} while (flag);
+
+		ClassInfoParsed = true;
+	}
+	catch (const parse::ParseException& e)
+	{
+		mprintf(("WMCGUI: Unable to parse '%s'!  Error code = %s.\n", filename, e.what()));
 		return;
 	}
-
-	read_file_text(filename);
-	reset_parse();
-	ScreenClassInfo.Parse();
-
-	bool flag;
-	do {
-		ScreenClassInfoEntry* sciep = new ScreenClassInfoEntry;
-		flag = sciep->Parse();
-		if (flag) {
-			list_append(&ScreenClassInfo, sciep);
-		}
-	} while(flag);
-
-	ClassInfoParsed = true;
 }
 
 void ClassInfoEntry::Parse(char* tag, int in_type)
@@ -1621,7 +1624,7 @@ void Button::DoDraw(float frametime)
 		} else {
 			gr_set_color_fast(&Color_text_selected);
 		}
-		draw_open_rect(Coords[0], Coords[1], Coords[2], Coords[3], false);
+		draw_open_rect(Coords[0], Coords[1], Coords[2], Coords[3], GR_RESIZE_NONE);
 
 		int half_x, half_y;
 		gr_get_string_size(&half_x, &half_y, Caption.c_str());
@@ -2395,7 +2398,7 @@ void Checkbox::DoDraw(float frametime)
 		gr_set_color_fast(&Color_text_normal);
 	}
 
-	draw_open_rect(CheckCoords[0], CheckCoords[1], CheckCoords[2], CheckCoords[3], false);
+	draw_open_rect(CheckCoords[0], CheckCoords[1], CheckCoords[2], CheckCoords[3], GR_RESIZE_NONE);
 
 	if ( (IsChecked && ((FlagPtr == NULL) && (BoolFlagPtr == NULL)))
 		|| ((FlagPtr != NULL) && ((*FlagPtr) & Flag))
