@@ -69,6 +69,7 @@ public:
 	CButton	m_scramble_messages;
 	CButton m_no_collide;
 	CButton m_no_disabled_self_destruct;
+	CButton m_hide_log_entries;
 
 	CSpinButtonCtrl	m_destroy_spin;
 	numeric_edit_control m_kdamage;

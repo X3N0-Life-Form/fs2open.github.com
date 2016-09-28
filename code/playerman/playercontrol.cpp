@@ -1004,8 +1004,8 @@ void lock_player_controls(bool lock_controls)
 		Player_obj->phys_info.flags &= ~PF_BOOSTER_ON;
 		Player_obj->phys_info.flags &= ~PF_GLIDING;
 
-		joy_flush();
-		key_flush();
+		//joy_flush();
+		//key_flush();
 		mouse_flush();
 		player_control_reset_ci(&(Player->ci));
 	}
@@ -1014,8 +1014,8 @@ void lock_player_controls(bool lock_controls)
 		Player_obj->phys_info.desired_rotvel = vmd_zero_vector;
 		Player_obj->phys_info.desired_vel = Player_obj->phys_info.vel;
 
-		joy_flush();
-		key_flush();
+		//joy_flush();
+		//key_flush();
 		mouse_flush();
 		player_control_reset_ci(&(Player->ci));
 	}

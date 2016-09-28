@@ -2092,11 +2092,11 @@ int parse_create_object_sub(p_object *p_objp)
     if ((shipp->wingnum != -1) && (Wings[shipp->wingnum].flags[Ship::Wing_Flags::Nav_carry]))
         shipp->flags.set(Ship::Ship_Flags::Navpoint_carry);
 
-	if ((shipp->wingnum != -1) && (Wings[shipp->wingnum].flags & WF_NO_ARRIVAL_LOG))
-		shipp->flags2 |= SF2_NO_ARRIVAL_LOG;
+	if ((shipp->wingnum != -1) && (Wings[shipp->wingnum].flags[Ship::Wing_Flags::No_arrival_log]))
+		shipp->flags.set(Ship::Ship_Flags::No_arrival_log);
 
-	if ((shipp->wingnum != -1) && (Wings[shipp->wingnum].flags & WF_NO_DEPARTURE_LOG))
-		shipp->flags2 |= SF2_NO_DEPARTURE_LOG;
+	if ((shipp->wingnum != -1) && (Wings[shipp->wingnum].flags[Ship::Wing_Flags::No_departure_log]))
+		shipp->flags.set(Ship::Ship_Flags::No_departure_log);
 
 	// if the wing index and wing pos are set for this parse object, set them for the ship.  This
 	// is useful in multiplayer when ships respawn

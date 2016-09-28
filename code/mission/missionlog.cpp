@@ -226,7 +226,7 @@ void mission_log_add_entry(int type, const char *pname, const char *sname, int i
 	int index = ship_name_lookup(pname);
 	if (index >= 0) {
 		ship* shipp = &Ships[index];
-		if ((shipp->flags2 & SF2_HIDE_LOG_ENTRIES) != 0) {
+		if (shipp->flags[Ship::Ship_Flags::Hide_log_entries] != 0) {
 			entry->flags |= MLF_HIDDEN;
 		}
 	}
@@ -308,8 +308,8 @@ void mission_log_add_entry(int type, const char *pname, const char *sname, int i
 		} else if ( (type == LOG_SHIP_ARRIVED) && (Ships[index].wingnum != -1 ) ) {
 			// arrival of ships in wings don't display
 			entry->flags |= MLF_HIDDEN;
-		} else if ( (type == LOG_SHIP_ARRIVED) && ((Ships[index].flags2 & SF2_NO_ARRIVAL_LOG) != 0)
-				|| (type == LOG_SHIP_DEPARTED) && ((Ships[index].flags2 & SF2_NO_DEPARTURE_LOG) != 0) ) {
+		} else if ( (type == LOG_SHIP_ARRIVED) && (Ships[index].flags[Ship::Ship_Flags::No_arrival_log] != 0)
+				|| (type == LOG_SHIP_DEPARTED) && (Ships[index].flags[Ship::Ship_Flags::No_departure_log] != 0) ) {
 			entry->flags |= MLF_HIDDEN;
 		}
 		break;
@@ -342,8 +342,8 @@ void mission_log_add_entry(int type, const char *pname, const char *sname, int i
 			entry->primary_team = info_index;
 		}
 
-		if (((type == LOG_WING_ARRIVED) && ((Wings[index].flags & WF_NO_ARRIVAL_LOG) != 0))
-				|| ((type == LOG_WING_DEPARTED) && ((Wings[index].flags & WF_NO_DEPARTURE_LOG) != 0))) {
+		if (((type == LOG_WING_ARRIVED) && (Wings[index].flags[Ship::Wing_Flags::No_arrival_log] != 0))
+				|| ((type == LOG_WING_DEPARTED) && (Wings[index].flags[Ship::Wing_Flags::No_departure_log] != 0))) {
 			entry->flags |= MLF_HIDDEN;
 		}
 

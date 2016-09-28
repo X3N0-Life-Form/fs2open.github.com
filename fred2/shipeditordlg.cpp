@@ -384,6 +384,7 @@ void CShipEditorDlg::initialize_data(int full_update)
 	int type, ship_count, player_count, total_count, wing = -1, pvalid_count;
 	int a_cue, d_cue, cue_init = 0, cargo = 0, base_ship, base_player, pship = -1;
 	int no_arrival_warp = 0, no_departure_warp = 0, escort_count, ship_orders, current_orders;
+	int no_arrival_log = 0, no_departure_log = 0;
 	int pship_count;  // a total count of the player ships not marked
 	object *objp;
 	CWnd *w = NULL;
@@ -633,7 +634,7 @@ void CShipEditorDlg::initialize_data(int full_update)
 
 							no_arrival_warp = tristate_set(Ships[i].flags[Ship::Ship_Flags::No_arrival_warp], no_arrival_warp);
 							no_departure_warp = tristate_set(Ships[i].flags[Ship::Ship_Flags::No_departure_warp], no_departure_warp);
-							no_arrival_log = tristate_set(Ships[i].flags[Ship::Ship_Flags::No_arrival_log] no_arrival_log);
+							no_arrival_log = tristate_set(Ships[i].flags[Ship::Ship_Flags::No_arrival_log], no_arrival_log);
 							no_departure_log = tristate_set(Ships[i].flags[Ship::Ship_Flags::No_departure_log], no_departure_log);
 						}
 					}
