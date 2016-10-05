@@ -309,6 +309,8 @@ flag_def_list_new<Mission::Parse_Object_Flags> Parse_object_flags[] = {
     { "weapons-locked",					Mission::Parse_Object_Flags::SF_Weapons_locked,			true, false },
     { "scramble-messages",				Mission::Parse_Object_Flags::SF_Scramble_messages,		true, false },
     { "no_collide",						Mission::Parse_Object_Flags::OF_No_collide,				true, false },
+	{ "no-arrival-log",					Mission::Parse_Object_Flags::SF_No_arrival_log,			true, false },
+	{ "no-departure-log",				Mission::Parse_Object_Flags::SF_No_departure_log,		true, false },
 };
 
 const size_t num_parse_object_flags = sizeof(Parse_object_flags) / sizeof(flag_def_list_new<Mission::Parse_Object_Flags>);
@@ -4499,6 +4501,10 @@ void parse_wing(mission *pm)
                 wingp->flags.set(Ship::Wing_Flags::No_dynamic);
             else if (!stricmp(wing_flag_strings[i], NOX("nav-carry-status")))
                 wingp->flags.set(Ship::Wing_Flags::Nav_carry);
+			else if (!stricmp(wing_flag_strings[i], NOX("no-arrival-log")))
+				wingp->flags.set(Ship::Wing_Flags::No_arrival_log);
+			else if (!stricmp(wing_flag_strings[i], NOX("no-departure-log")))
+				wingp->flags.set(Ship::Wing_Flags::No_departure_log);
             else
                 Warning(LOCATION, "unknown wing flag\n%s\n\nSkipping.", wing_flag_strings[i]);
 		}
